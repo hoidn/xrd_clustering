@@ -1,0 +1,3 @@
+[submodule "xrdc/utils"]
+	path = xrdc/utils
+	url = https://github.com/hoidn/utils.git
