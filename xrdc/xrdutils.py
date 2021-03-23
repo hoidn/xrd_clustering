@@ -21,8 +21,12 @@ from sklearn.cluster import KMeans
 from gpflow.ci_utils import ci_niter
 
 from scipy.interpolate import interp1d
+
+from utils import utils
 #q_grid, I_ref = pd.read_csv("../../TiNiSn_500C-20190604T152446Z-001/TiNiSn_500C/TiNiSn_500C_Y20190218_14x14_t60_0003_bkgdSub_1D.csv", header = None).values.T
-q_grid, I_ref = pd.read_csv("/Users/ollie/Documents/SLAC/TiNiSn_500C-20190604T152446Z-001/TiNiSn_500C/TiNiSn_500C_Y20190218_14x14_t60_0003_bkgdSub_1D.csv", header = None).values.T
+
+#q_grid, I_ref = pd.read_csv("/Users/ollie/Documents/SLAC/TiNiSn_500C-20190604T152446Z-001/TiNiSn_500C/TiNiSn_500C_Y20190218_14x14_t60_0003_bkgdSub_1D.csv", header = None).values.T
+q_grid, I_ref = pd.read_csv(utils.resource_path("data/TiNiSn_500C_Y20190218_14x14_t60_0003_bkgdSub_1D.csv"), header = None).values.T
 #q_grid = np.arange(1.5, 7.5, 6 / 800)
 
 def extrap1d(interpolator, extend = 'zero'):
