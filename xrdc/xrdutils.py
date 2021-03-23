@@ -165,16 +165,17 @@ def mk_simdata(patterns, n_per_basis, rmin, rmax, q_grid, y = None, scale_type =
     n_basis = len(patterns)
     print('scale type:', scale_type)
     print('q jitter:', q_jitter_magnitude)
+    scale_vs = np.random.uniform(rmin, rmax, (n_basis, n_per_basis))
     sampled_patterns = np.vstack([np.vstack([condense(
-        mutate_pattern(basis, np.random.uniform(rmin, rmax), q_grid, scale_type = scale_type,\
+        mutate_pattern(basis, scale_vs[i][j], q_grid, scale_type = scale_type,\
                 peak_height = peak_height, q_jitter_magnitude = q_jitter_magnitude), q_dim)
-                                         for _ in range(n_per_basis)])
-                       for basis in patterns])
+                                         for j in range(n_per_basis)])
+                       for (i, basis) in enumerate(patterns)])
     if y is None:
         ynew = np.hstack([np.repeat(i, n_per_basis) for i in range(n_basis)])[None, :].T
     else:
         ynew = np.hstack([np.repeat(y0, n_per_basis) for y0 in y])[None, :].T
-    return sampled_patterns, ynew
+    return sampled_patterns, ynew, scale_vs
 
 def write_train_test(prefix, x_train, y_train, x_val, y_val):
     os.makedirs(prefix + '/train', exist_ok=True)
