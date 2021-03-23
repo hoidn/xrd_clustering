@@ -14,7 +14,7 @@ setup(name='xrdc',
 #    scripts = [
 #        'scripts/mecana.py', 'scripts/logbooksync.py'
 #    ],
-#    install_requires = ['recordclass', 'google-api-python-client', 'httplib2', 'atomicfile', 'urllib3', 'gspread', 'requests>=2.9.1', 'multiprocess', 'dill', 'pox', 'ppft', 'ipdb', 'joblib', 'mpi4py', 'h5py'],
+    install_requires = ['gpflow'],
     zip_safe = False,
     )
 
