@@ -151,7 +151,7 @@ def mutate_pattern(pattern, scale, q_grid, sigma_width = None, scale_type = 'sca
 def condense(arr, newsize, norm = True):
     extra = newsize - (len(arr) % newsize)
     arr = np.hstack((arr, np.zeros(extra)))
-    arr = arr.reshape(newsize, -1).sum(axis = 1)
+    arr = arr.reshape(newsize, -1).mean(axis = 1)
     if norm:
         arr = arr / arr.mean()
     return arr
