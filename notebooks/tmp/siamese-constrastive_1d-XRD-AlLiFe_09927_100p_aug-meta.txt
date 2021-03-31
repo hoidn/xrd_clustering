@@ -1,0 +1,1 @@
+Namespace(animation=True, batch_size=32, comments='', dataset='XRD', epochs=400, log_interval=50, lr=0.0001, n_classes=231, name='AlLiFe_09927_100p_aug', net='siamese-constrastive_1d', output='./tmp', test_path='data/AlLiFe_09927_100p_aug/test/', train_path='data/AlLiFe_09927_100p_aug/train/')

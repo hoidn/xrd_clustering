@@ -1,0 +1,1 @@
+Namespace(animation=True, batch_size=32, comments='this is a comment', dataset='XRD', epochs=10, log_interval=50, lr=0.0001, n_classes=10, name='10_member_same_test', net='siamese-constrastive_1d', output='./tmp', test_path='../data/10_member/train/', train_path='../data/10_member/train/')
