@@ -1,1 +1,0 @@
-Namespace(animation=True, batch_size=32, comments='', dataset='XRD', epochs=50, log_interval=50, lr=0.0001, n_classes=177, name='TiNiSn_scale_and_peakheight_2', net='siamese-constrastive_1d', output='./tmp', test_path='../data/TiNiSn_experimental/test/', train_path='../data/TiNiSn_experimental_2/train/')

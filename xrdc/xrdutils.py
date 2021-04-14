@@ -92,8 +92,12 @@ from functools import reduce
 def rand_pattern(npeaks = 5, sigma = .02):
     return mk_pattern(np.random.uniform(size = npeaks), random_qs(npeaks, q_grid.min(), q_grid.max()), sigma)
 
-def mk_pattern(intensities, qs, sigma):
-    return reduce(lambda a, b: a + b, [gauss(q_grid, mu, I, sigma) for I, mu in zip(intensities, qs)])
+def mk_pattern(intensities, qs, sigma, norm = True):
+    res = reduce(lambda a, b: a + b, [gauss(q_grid, mu, I, sigma) for I, mu in zip(intensities, qs)])
+    if norm:
+        return res / res.mean()
+    else:
+        return res 
 
 def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .35):
     # todo not in module scope
@@ -120,9 +124,16 @@ def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .35):
 
 generate_peak_scales_default = mk_generate_peak_scales(q_grid)
 
+def poisson_additive(pattern, noise_scale = 1, poisson_lam = 30):
+    """
+    Add nonnegative noise to the pattern
+    """
+    return np.random.poisson(lam = poisson_lam, size = len(pattern)) / (poisson_lam / (noise_scale * pattern.mean()))
+
 from scipy.ndimage.filters import gaussian_filter
 def mutate_pattern(pattern, scale, q_grid, sigma_width = None, scale_type = 'scale', peak_height = True,
-        q_jitter_magnitude = None, default_grid = True):
+        q_jitter_magnitude = None, default_grid = True, noise_scale = 1, poisson_lam = 30,
+        noise_type = 'uniform'):
     if scale_type == 'scale':
         interp = extrap1d(interp1d(q_grid * scale, pattern))
         relative_lorentz = lorentz_q(q_grid * scale) / lorentz_q(q_grid)
@@ -144,7 +155,10 @@ def mutate_pattern(pattern, scale, q_grid, sigma_width = None, scale_type = 'sca
             resampled = resampled  * mk_generate_peak_scales(q_grid)(q_grid.shape[0])#generate_peak_scales_default(q_grid)
     #print(relative_lorentz)
 
-    noise = np.random.uniform(size = len(q_grid)) / 50
+    if noise_type == 'uniform':
+        noise = np.random.uniform(size = len(q_grid)) / 50
+    elif noise_type == 'poisson':
+        noise = poisson_additive(pattern, noise_scale = noise_scale, poisson_lam = poisson_lam)
     return resampled + noise
 
 
@@ -157,7 +171,7 @@ def condense(arr, newsize, norm = True):
     return arr
 
 def mk_simdata(patterns, n_per_basis, rmin, rmax, q_grid, y = None, scale_type = 'shift',\
-        q_dim = 150, peak_height = True, q_jitter_magnitude = None):
+        q_dim = 150, peak_height = True, q_jitter_magnitude = None, **kwargs):
 #    if scale_type == 'shift':
 #        rmin, rmax = -.5, .5
 #    elif scale_type == 'scale':
@@ -165,10 +179,11 @@ def mk_simdata(patterns, n_per_basis, rmin, rmax, q_grid, y = None, scale_type =
     n_basis = len(patterns)
     print('scale type:', scale_type)
     print('q jitter:', q_jitter_magnitude)
+    print('peak height variation', peak_height)
     scale_vs = np.random.uniform(rmin, rmax, (n_basis, n_per_basis))
     sampled_patterns = np.vstack([np.vstack([condense(
         mutate_pattern(basis, scale_vs[i][j], q_grid, scale_type = scale_type,\
-                peak_height = peak_height, q_jitter_magnitude = q_jitter_magnitude), q_dim)
+                peak_height = peak_height, q_jitter_magnitude = q_jitter_magnitude, **kwargs), q_dim)
                                          for j in range(n_per_basis)])
                        for (i, basis) in enumerate(patterns)])
     if y is None:
@@ -248,3 +263,37 @@ def logtransform(x, y):
 
     logx_new = np.linspace(logx.min(), logx.max(), len(logx))
     return logx_new, interp(logx_new)
+
+
+def mk_basis_patterns(n_basis):
+    return [xrdutils.rand_pattern() for _ in range(n_basis)]
+
+def gen_train_and_test_with_scales(n_basis, n_per_basis, prefix, same_basis = True, scale_type = 'shift'):
+    # TODO rename
+    """
+    Generate random patterns and write the patterns, labels, and random scale/shift values to disk
+    """
+    basis = mk_basis_patterns(n_basis)
+    x_train, y_train, scale_vs_train = xrdutils.mk_simdata(basis, n_per_basis, -.6, .2, xrdutils.q_grid, scale_type = scale_type)
+    if not same_basis:
+        basis = mk_basis_patterns(n_basis)
+    x_val, y_val, scale_vs_val = xrdutils.mk_simdata(basis, n_per_basis, -.6, .2, xrdutils.q_grid, scale_type = scale_type)
+    os.makedirs(prefix + '/train', exist_ok=True)
+    os.makedirs(prefix + '/test', exist_ok=True)
+    
+    scales_train = scale_vs_train.ravel()
+    scales_val = scale_vs_val.ravel()
+    
+    np.save("{}x.npy".format(prefix + '/train/'), x_train)
+    np.save("{}y.npy".format(prefix + '/train/'), y_train)
+    np.save("{}x.npy".format(prefix + '/test/'), x_val)
+    np.save("{}y.npy".format(prefix + '/test/'), y_val)
+    
+    np.save("{}scales.npy".format(prefix + '/train/'), scales_train)
+    np.save("{}scales.npy".format(prefix + '/test/'), scales_val)
+    return x_train, y_train, x_val, y_val, scales_train, scales_val
+
+def standardize_input(X, Y):
+    X = condense2d(X, 150)
+    Y = Y[:, None]
+    return X, Y

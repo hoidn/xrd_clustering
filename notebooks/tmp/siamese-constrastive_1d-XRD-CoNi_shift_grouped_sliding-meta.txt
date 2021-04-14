@@ -1,1 +1,0 @@
-Namespace(animation=True, batch_size=32, comments='', dataset='XRD', epochs=150, log_interval=50, lr=0.0001, n_classes=788, name='CoNi_shift_grouped_sliding', net='siamese-constrastive_1d', output='./tmp', test_path='data/CoNi_shift_grouped_sliding/test/', train_path='data/CoNi_shift_grouped_sliding/train/')
