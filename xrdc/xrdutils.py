@@ -92,12 +92,18 @@ from functools import reduce
 def rand_pattern(npeaks = 5, sigma = .02):
     return mk_pattern(np.random.uniform(size = npeaks), random_qs(npeaks, q_grid.min(), q_grid.max()), sigma)
 
-def mk_pattern(intensities, qs, sigma, norm = True):
+def mk_pattern(intensities, qs, sigma, norm = True, with_grid = False):
     res = reduce(lambda a, b: a + b, [gauss(q_grid, mu, I, sigma) for I, mu in zip(intensities, qs)])
     if norm:
-        return res / res.mean()
+        if with_grid:
+            return q_grid, res / res.mean()
+        else:
+            return res / res.mean()
     else:
-        return res 
+        if with_grid:
+            return q_grid, res 
+        else:
+            return res 
 
 def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .35):
     # todo not in module scope
@@ -170,6 +176,14 @@ def condense(arr, newsize, norm = True):
         arr = arr / arr.mean()
     return arr
 
+def condense2d(arr, size):
+    return np.vstack([condense(row, size) for row in arr])
+
+def standardize_input(X, Y):
+    X = xdu.condense2d(X, 150)
+    Y = Y[:, None]
+    return X, Y
+
 def mk_simdata(patterns, n_per_basis, rmin, rmax, q_grid, y = None, scale_type = 'shift',\
         q_dim = 150, peak_height = True, q_jitter_magnitude = None, **kwargs):
 #    if scale_type == 'shift':
@@ -241,9 +255,6 @@ def group_patterns(*pieces, n_classes = 200, rmin = -.2, rmax = .2, randomize = 
     X = np.vstack([condense(mutate_pattern(row, np.random.uniform(rmin, rmax), scale_type = 'shift', peak_height = True), 150) for row in X])
     return X, y
 
-def condense2d(arr, size):
-    return np.vstack([condense(row, size) for row in arr])
-
 
 def gcluster(X, N = 6):
     gmm = GMM(n_components=N, covariance_type='full').fit(X)
@@ -297,3 +308,16 @@ def standardize_input(X, Y):
     X = condense2d(X, 150)
     Y = Y[:, None]
     return X, Y
+
+def augment(X, y, rmin, rmax, q, N = 10, scale_type = 'scale'):
+    """
+    Take N transformed samples of each row in X.
+    
+    Return new X, y (with y matching source pattern index)
+    """
+    y = np.hstack([np.repeat(v, N) for v in y])[None, :].T
+    X = np.vstack([np.vstack([mutate_pattern(row, np.random.uniform(rmin, rmax), q  / 10,
+                                           scale_type = scale_type, peak_height = True,
+                                 default_grid = False) for _ in range(N)])
+            for row in X])
+    return X, y
