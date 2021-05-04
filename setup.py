@@ -14,7 +14,7 @@ setup(name='xrdc',
 #    scripts = [
 #        'scripts/mecana.py', 'scripts/logbooksync.py'
 #    ],
-    install_requires = ['gpflow'],
+    install_requires = ['gpflow', 'bayesian-optimization'],
     zip_safe = False,
     )
 
