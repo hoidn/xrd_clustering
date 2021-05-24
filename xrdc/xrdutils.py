@@ -105,7 +105,7 @@ def mk_pattern(intensities, qs, sigma, norm = True, with_grid = False):
         else:
             return res 
 
-def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .35):
+def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .15):
     # todo not in module scope
     dq = q_grid[1] - q_grid[0]
     sigma_peakvar = dq * sigma_peakvar

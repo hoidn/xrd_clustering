@@ -1,5 +1,7 @@
 import numpy as np
 from siamese_xrd import train
+import torch
+from torch.utils.data import TensorDataset, DataLoader
 
 def ndarr_to_dataloader(X, Y):
     tensor_x = torch.Tensor(X[:, None, :]) # transform to torch tensor
