@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from scipy.signal import argrelextrema
 from scipy.ndimage.filters import gaussian_filter as gf
 
+debug = False
+
 # this one comes from head, might be different
 def get_ridges(orig, axis = 1):
     # determine the indices of the local maxima
@@ -113,6 +115,7 @@ from scipy.ndimage.measurements import label
 from sklearn.cluster import KMeans
 
 def preprocess(patterns, bg_smooth = 80, smooth = 1.7, bgsub = False, threshold_percentile = 60):
+    assert bgsub in [True, False]
     bg = gf(patterns,bg_smooth)
     p = patterns.copy()
     if bgsub:
@@ -194,15 +197,17 @@ def get_ridge_features(patterns, smooth = 1.7, threshold_percentile = 60, thicke
     activations_n1 = normf(activations, 1, log_scale = log_scale_features)
     return labeled, feature_masks, activations, activations_n0, activations_n1
 
-def do_clust(patterns, activations, n_clust, ctype = 'agglom'):
+def do_clust(patterns, activations, n_clust, ctype = 'agglom', **kwargs):
     X = activations.T
     
     if ctype == 'kmeans':
         # X = activations_n1.T
-        kmeans = KMeans(n_clusters=n_clust, random_state=0).fit(X)
+        kmeans = KMeans(n_clusters=n_clust, random_state=0, **kwargs).fit(X)
         clust = kmeans.labels_
     elif ctype == 'agglom':
-        clustering = AgglomerativeClustering(n_clusters=n_clust).fit(X)
+        if debug:
+            print(kwargs)
+        clustering = AgglomerativeClustering(n_clusters=n_clust, **kwargs).fit(X)
         clust = clustering.labels_
     else:
         raise Exception
@@ -216,8 +221,8 @@ def do_clust(patterns, activations, n_clust, ctype = 'agglom'):
     sorter = np.argsort([j * 10000 + i for (i, j) in enumerate(clust_cms)])
     return clust, sorter, clust_cms
 
-def get_boundaries(patterns, activations, n_clust = 7, ctype = 'agglom'):
-    clust, sorter, clust_cms = do_clust(patterns, activations, n_clust, ctype = ctype)
+def get_boundaries(patterns, activations, n_clust = 7, ctype = 'agglom', **kwargs):
+    clust, sorter, clust_cms = do_clust(patterns, activations, n_clust, ctype = ctype, **kwargs)
     boundaries = np.hstack(((np.diff(clust_cms[sorter]) > 0), [0])).astype(bool)
     return sorter, boundaries, clust_cms
 
@@ -295,31 +300,41 @@ def similarity_plot_row(fn, label, patterns, activations, activations_n1,
         plt.title("{} distances, log scaled (feature space, normalized dim 1)".format(label))
         plt.imshow(feature_csims, interpolation = 'none', cmap = 'jet')
         
-def ordered_cuts(activations, n, ctype = 'agglom'):
-    tmp = [get_boundaries(activations, n_clust = i, ctype = ctype)[1] for i in range(2, n + 1)]
-    tmp = [np.zeros_like(tmp[0]).astype(bool)] + tmp
-    cuts = set()
-    for i, (cp, cn) in enumerate(zip(tmp, tmp[1:])):
-        for cut_i in np.where((cp ^ cn))[0]:
-            if cut_i not in cuts:
-                cuts.add((i, cut_i))
-                cuts.add(cut_i)
-    cuts = sorted(list(filter(lambda elt: type(elt) == tuple, cuts)))
-    cuts = [elt[1] for elt in cuts]
-    return cuts
+def ordered_cuts(patterns, activations, n, ctype = 'agglom', cut_type = 'clustering', simfn = None, **kwargs):
+    if cut_type == 'clustering':
+        tmp = [get_boundaries(patterns, activations, n_clust = i, ctype = ctype, **kwargs)[1] for i in range(2, n + 1)]
+        tmp = [np.zeros_like(tmp[0]).astype(bool)] + tmp
+        cuts = set()
+        for i, (cp, cn) in enumerate(zip(tmp, tmp[1:])):
+            for cut_i in np.where((cp ^ cn))[0]:
+                if cut_i not in cuts:
+                    cuts.add((i, cut_i))
+                    cuts.add(cut_i)
+        cuts = sorted(list(filter(lambda elt: type(elt) == tuple, cuts)))
+        cuts = [elt[1] for elt in cuts]
+        return cuts
+    elif cut_type == 'pairwise':
+        # TODO: compute this efficiently
+        feature_csims = simfn(activations.T)
+        psims = np.hstack((np.diagonal(np.roll(feature_csims, -1, axis = 1))[:-1], np.ones(1)))
+        return np.argsort(psims)[:n - 1]
 
 def draw_cuts(o_cuts, offset, fontsize, vlines = True, extent = 60):
     if extent is None:
         extent = offset
     for i, v in enumerate(o_cuts):
         if v:
-#             if i > 3:
-#                 sty = 'dashed'
-#             else:
-            sty = 'solid'
-            plt.hlines(v + .5, 0, extent, color = 'k', linestyles=sty)
+            if i == 0:
+                sty = 'solid'
+            elif i == 1:
+                sty = 'dashed'
+            elif i == 2:
+                sty = 'dashdot'
+            else:
+                sty = 'dotted'
+            plt.hlines(v + .5, 0, extent, color = 'k', linestyles=sty, linewidth = 5)
             if vlines:
-                plt.vlines(v + .5, 0, extent, color = 'k', linestyles=sty)
+                plt.vlines(v + .5, 0, extent, color = 'k', linestyles=sty, linewidth = 5)
             plt.text(offset, v + .5, "cut {}".format(i), fontsize=fontsize)
             
 

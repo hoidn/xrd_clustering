@@ -112,3 +112,6 @@ def circle_to_simplex(x, y):
     scale = (r0 * center_to_edge(simplex_pt_to_alpha(xr, yr)))
 
     return scale * x + x0, scale * y + y0
+
+def csim(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))

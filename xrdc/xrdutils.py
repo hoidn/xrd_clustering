@@ -185,7 +185,7 @@ def standardize_input(X, Y):
     return X, Y
 
 def mk_simdata(patterns, n_per_basis, rmin, rmax, q_grid, y = None, scale_type = 'shift',\
-        q_dim = 150, peak_height = True, q_jitter_magnitude = None, **kwargs):
+        q_dim = 150, peak_height = True, q_jitter_magnitude = None, apply_condense = True, **kwargs):
 #    if scale_type == 'shift':
 #        rmin, rmax = -.5, .5
 #    elif scale_type == 'scale':
@@ -195,11 +195,19 @@ def mk_simdata(patterns, n_per_basis, rmin, rmax, q_grid, y = None, scale_type =
     print('q jitter:', q_jitter_magnitude)
     print('peak height variation', peak_height)
     scale_vs = np.random.uniform(rmin, rmax, (n_basis, n_per_basis))
-    sampled_patterns = np.vstack([np.vstack([condense(
-        mutate_pattern(basis, scale_vs[i][j], q_grid, scale_type = scale_type,\
-                peak_height = peak_height, q_jitter_magnitude = q_jitter_magnitude, **kwargs), q_dim)
-                                         for j in range(n_per_basis)])
-                       for (i, basis) in enumerate(patterns)])
+    def one_sample(i, j, basis):
+        mutated = mutate_pattern(basis, scale_vs[i][j], q_grid, scale_type = scale_type,\
+                        peak_height = peak_height, q_jitter_magnitude = q_jitter_magnitude, **kwargs)
+        if apply_condense:
+            return condense( mutated, q_dim)
+        else:
+            return mutated
+
+    sampled_patterns = np.vstack(
+                            [np.vstack(
+                                [one_sample(i, j, basis)
+                                    for j in range(n_per_basis)])
+                                for (i, basis) in enumerate(patterns)])
     if y is None:
         ynew = np.hstack([np.repeat(i, n_per_basis) for i in range(n_basis)])[None, :].T
     else:
@@ -243,16 +251,23 @@ def sample_transition(*pieces, n_classes = 24, per_class = 500):
     X_samples, y = mk_simdata(X, per_class, -.5, .5, scale_type = 'shift')
     return X_samples, y
 
-def group_patterns(*pieces, n_classes = 200, rmin = -.2, rmax = .2, randomize = False):
+def group_patterns(*pieces, n_classes = 200, rmin = -.2, rmax = .2, randomize = False, apply_condense = True):
     """
     Instead of averaging the rows and doing data augmentation, just group them.
     """
     if randomize == False:
         raise NotImplementedError
+    def mutate_one(row):
+        mutated = mutate_pattern(row, np.random.uniform(rmin, rmax), scale_type = 'shift', peak_height = True)
+        if apply_condense:
+            return condense(mutated, 150)
+        else:
+            return mutated
+
     per_class = 600 // n_classes
     X = np.vstack(pieces)
     y = np.hstack([np.repeat(i, per_class) for i in range(n_classes)])[None, :].T
-    X = np.vstack([condense(mutate_pattern(row, np.random.uniform(rmin, rmax), scale_type = 'shift', peak_height = True), 150) for row in X])
+    X = np.vstack([mutate_one(row) for row in X])
     return X, y
 
 
