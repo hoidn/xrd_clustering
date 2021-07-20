@@ -4,3 +4,12 @@
 [submodule "siamese-net-and-friends"]
 	path = siamese-net-and-friends
 	url = https://github.com/hoidn/siamese-net-and-friends.git
+[submodule "notebooks/hierarchical-clustering"]
+	path = notebooks/hierarchical-clustering
+	url = https://github.com/shubhamjha97/hierarchical-clustering.git
+[submodule "notebooks/k-means"]
+	path = notebooks/k-means
+	url = https://github.com/gbroques/k-means.git
+[submodule "xrdc/dataproc"]
+	path = xrdc/dataproc
+	url = https://github.com/tangkong/dataproc.git

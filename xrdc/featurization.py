@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import argrelextrema
 from scipy.ndimage.filters import gaussian_filter as gf
+from scipy.ndimage import gaussian_filter1d as gf1d
 
 debug = False
 
@@ -18,11 +19,12 @@ def get_ridges(orig, axis = 1):
     edges[max_ind] = 1
     return edges
 
-def shuffle(bin_img, size = 1):
+def shuffle(bin_img, thicken_ax0 = 1, thicken_ax1 = 1):
     ret = np.zeros_like(bin_img)
-    for s in range(-size, size + 1):
-        ret += np.roll(bin_img, s, axis = 0)
-        ret += np.roll(bin_img, s, axis = 1)
+    for s0 in range(-thicken_ax0, thicken_ax0 + 1):
+        for s1 in range(-thicken_ax1, thicken_ax1 + 1):
+            ret += np.roll(bin_img, s0, axis = 0)
+            ret += np.roll(bin_img, s1, axis = 1)
     return np.sign(ret)
 
 def get_features_spans(labeled, i):
@@ -104,6 +106,9 @@ def csim_pairs(composition):
     return similarity
 
 def l2_pairs(a):
+    """
+    Calculate L2 distances.
+    """
     b = a.reshape((a.shape[0], 1, a.shape[1]))
     dist_l2 = np.sqrt(np.einsum("ijk, ijk->ij", a - b, a - b))
     return dist_l2
@@ -114,30 +119,72 @@ def l2_sim(a):
 from scipy.ndimage.measurements import label
 from sklearn.cluster import KMeans
 
-def preprocess(patterns, bg_smooth = 80, smooth = 1.7, bgsub = False, threshold_percentile = 60):
+def preprocess(patterns, bg_smooth = 80, smooth_ax1 = 'FWHM', smooth_ax0 = 2, bgsub = False, threshold_percentile = 50,
+        fwhm_finder = None, smooth_factor_ax1 = 0.25):
+    """
+    fwhm_finder: callback function that, given y, returns mean peak FWHM for most prominent peak
+    across all rows of patterns.
+
+    smooth_ax1: 'FWHM' or numeric.
+    """
     assert bgsub in [True, False]
     bg = gf(patterns,bg_smooth)
     p = patterns.copy()
     if bgsub:
         p = p - bg
+        p = p - min(0, p.min()) # shift so that all values are positive
 
     threshold = np.percentile(patterns, threshold_percentile)
     p[p < threshold] = 0
 
     #p = np.log(1 + p)
-    smoothed = gf(p, smooth)
+    if smooth_ax1 == 'FWHM':
+        fwhm = fwhm_finder(patterns)
+        sig1 = smooth_factor_ax1 * fwhm
+    else:
+        sig1 = smooth_ax1
+        hwhm = None
+    sig0 = smooth_ax0
+    smoothed = gf(p, (sig0, sig1))
     
-    return smoothed
+    return smoothed, fwhm
 
-def refine_and_label(arr, thicken = True, size_thresh = 5, sizetype = 'vertical'):
+import pdb
+def flood_thicken(labeled, arr, thresh = .95, max_hsize = 50):
+    from skimage import data, filters, color, morphology
+    from skimage.segmentation import flood, flood_fill
+    labeled = labeled.copy()
+    for i in range(1, labeled.max()):
+        i1 = np.nonzero(labeled == i)
+        #i1 = i1[0][::3], i1[1][1::3]
+        p = arr.copy()
+        peak_values = p[i1]
+        above_hm = ((p[i1[0]] > peak_values[:, None] * thresh)).copy()
+        filled = flood_fill(above_hm.astype(int), (0, i1[1][0]), -1, tolerance = 0.)
+        filled[filled > -1] = 0
+        fillx, filly = np.nonzero(filled)
+        fillx += i1[0].min()
+
+        new_labeled = labeled.copy()
+        new_labeled[fillx, filly] = i
+        _, hspan = get_features_spans(new_labeled, i)
+        if hspan > max_hsize:
+            print("feature {}: expanded feature size {} too large".format(i, hspan))
+            continue
+
+        labeled = new_labeled
+        labeled[fillx, filly] = i
+    return labeled
+
+def refine_and_label(arr, smoothed, thicken = True, do_flood_thicken = False, size_thresh = 2, sizetype = 'vertical',
+        max_size_flood = 50, flood_threshold = .95, thicken_ax0 = 1, thicken_ax1 = 'FWHM'):
+    if thicken and do_flood_thicken:
+        raise ValueError("only one of thicken and flood_thicken can be selected")
     if thicken:
-        arr = shuffle(arr)
+        arr = shuffle(arr, thicken_ax0, thicken_ax1)
     else:
         arr = np.sign(arr)
 
-#     plt.subplot(a, b, 3)
-#     plt.title('ridged(smoothed and expanded)')
-#     plt.imshow(arr, cmap = 'jet')
 
     if len(arr.shape) == 2:
         structure = np.ones((3, 3), dtype=int)  # this defines the connection filter
@@ -157,21 +204,29 @@ def refine_and_label(arr, thicken = True, size_thresh = 5, sizetype = 'vertical'
             j += 1
 
     labeled = new_labeled
+    if do_flood_thicken:
+        labeled = flood_thicken(labeled, smoothed, max_hsize = max_size_flood, thresh = flood_threshold)
+        labeled, ncomponents = label(labeled, structure) # merge overlapping features
     return arr, labeled
 
-def get_ridge_features(patterns, smooth = 1.7, threshold_percentile = 60, thicken = True, size_thresh = 5,
+def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size_thresh = 2,
                       bgsub = False, bg_smooth = 80, log_scale_features = False, logscale_heatmap = True,
-                      a = 5, b = 1, normf = norm):
+                      smooth_ax1 = 'FWHM', smooth_ax0 = 2, fwhm_finder = None, smooth_factor_ax1 = 0.25,
+                      a = 5, b = 1, normf = norm, do_flood_thicken = False, max_size_flood = 50, flood_threshold = .95,
+                      thicken_ax0 = 1, thicken_ax1 = 'FWHM'):
 
     plt.rcParams["figure.figsize"]=(20, 13)
     plt.subplot(a, b, 1)
     plt.title('ridges')
     plt.imshow(get_ridges(patterns), cmap = 'jet')
 
-    smoothed = preprocess(patterns, bg_smooth, bgsub = bgsub, threshold_percentile = threshold_percentile)
-
+    smoothed, fwhm = preprocess(patterns, bg_smooth, bgsub = bgsub, threshold_percentile = threshold_percentile,
+        smooth_ax1 = smooth_ax1, smooth_ax0 = smooth_ax0, fwhm_finder = fwhm_finder, smooth_factor_ax1 = smooth_factor_ax1)
     arr = get_ridges(smoothed)
-    arr, labeled = refine_and_label(arr, thicken = thicken, size_thresh = size_thresh)
+    if thicken_ax1 == 'FWHM':
+        thicken_ax1 = int(fwhm / 4) # TODO parameterize?
+    arr, labeled = refine_and_label(arr, smoothed, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
+        max_size_flood = max_size_flood, flood_threshold = flood_threshold, thicken_ax0 = thicken_ax0, thicken_ax1 = thicken_ax1)
     
     plt.subplot(a, b, 2)
     plt.title('ridges (smoothed)')
@@ -209,6 +264,12 @@ def do_clust(patterns, activations, n_clust, ctype = 'agglom', **kwargs):
             print(kwargs)
         clustering = AgglomerativeClustering(n_clusters=n_clust, **kwargs).fit(X)
         clust = clustering.labels_
+    elif ctype == 'divk':
+        #print(ctype)
+        from kmeans import bisecting_kmeans as divk
+        clustering = divk.KMeans(n_clust)
+        clustering.fit(list(X))
+        clust = np.array(clustering.labels_)
     else:
         raise Exception
 
