@@ -8,6 +8,56 @@ from scipy.ndimage import gaussian_filter1d as gf1d
 
 debug = False
 
+def distortion(X, means, covi, i):
+    p = X.shape[1]
+    # TODO don't calculate the whole matrix
+    return (np.diagonal(np.dot(X - means[i], np.dot(covi, (X - means[i]).T))))
+
+def distortions(X, means, covi):
+    K = means.shape[0]
+    return np.vstack([distortion(X, means, covi, i) for i in range(K)])
+
+def min_distortions(X, means, covi):
+    return distortions(X, means, covi).min(axis = 0)
+
+# JumpMethod(X):
+#     Let Y = (p/2)
+#     Init a list D, of size n+1
+#     Let D[0] = 0
+#     For k = 1 ... n:
+#         Cluster X with k clusters (e.g., with k-means)
+#         Let d = Distortion of the resulting clustering
+#         D[k] = d^(-Y)
+#     Define J(i) = D[i] - D[i-1]
+#     Return the k between 1 and n that maximizes J(k)
+
+
+from sklearn.cluster import KMeans
+
+def distortion_curve(X, Kmax = 15, **kwargs):
+    # TODO the dimensional scaling method seems not to work, so for now we're not using it
+    print(kwargs)
+    p = X.shape[1]
+    Y = p / 2
+    D = np.zeros(Kmax)
+    grid = list(range(1, Kmax))
+    for i in grid:
+        if i == 1:
+            y_predict = np.zeros(X.shape[0])
+            c0 = np.mean(X, axis = 0)
+            centroids = np.vstack([c0 for _ in range(X.shape[0])])
+        else:
+            y_predict = AgglomerativeClustering(n_clusters=i, **kwargs).fit_predict(X)
+            #y_predict = gm.predict(X)
+            from sklearn.neighbors.nearest_centroid import NearestCentroid
+            clf = NearestCentroid()
+            clf.fit(X, y_predict)
+            #gm = GaussianMixture(n_components=i, random_state=0, covariance_type='tied').fit(X)
+            centroids = clf.centroids_
+        d = min_distortions(X, centroids, np.eye(p)).mean()
+        #d = distortions(X, gm.means_, np.linalg.inv(gm.covariances_)).mean()
+        D[i] = d#**(-Y)
+    return grid, D[1:]
 # this one comes from head, might be different
 def get_ridges(orig, axis = 1):
     # determine the indices of the local maxima
@@ -25,6 +75,9 @@ def shuffle(bin_img, thicken_ax0 = 1, thicken_ax1 = 1):
         for s1 in range(-thicken_ax1, thicken_ax1 + 1):
             ret += np.roll(bin_img, s0, axis = 0)
             ret += np.roll(bin_img, s1, axis = 1)
+            if len(bin_img.shape) == 3:
+                print(3)
+                ret += np.roll(bin_img, s1, axis = 2)
     return np.sign(ret)
 
 def get_features_spans(labeled, i):
@@ -145,9 +198,15 @@ def preprocess(patterns, bg_smooth = 80, smooth_ax1 = 'FWHM', smooth_ax0 = 2, bg
         sig1 = smooth_ax1
         hwhm = None
     sig0 = smooth_ax0
-    smoothed = gf(p, (sig0, sig1))
+    if len(p.shape) == 2:
+        smoothed = gf(p, (sig0, sig1))
+    else:
+        smoothed = gf(p, (sig0, sig0, sig1))
     
-    return smoothed, fwhm
+    try:
+        return smoothed, fwhm
+    except UnboundLocalError:
+        return smoothed
 
 import pdb
 def flood_thicken(labeled, arr, thresh = .95, max_hsize = 50):
@@ -184,7 +243,6 @@ def refine_and_label(arr, smoothed, thicken = True, do_flood_thicken = False, si
         arr = shuffle(arr, thicken_ax0, thicken_ax1)
     else:
         arr = np.sign(arr)
-
 
     if len(arr.shape) == 2:
         structure = np.ones((3, 3), dtype=int)  # this defines the connection filter
@@ -253,6 +311,7 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
     return labeled, feature_masks, activations, activations_n0, activations_n1
 
 def do_clust(patterns, activations, n_clust, ctype = 'agglom', **kwargs):
+    #print(kwargs)
     X = activations.T
     
     if ctype == 'kmeans':
@@ -266,6 +325,7 @@ def do_clust(patterns, activations, n_clust, ctype = 'agglom', **kwargs):
         clust = clustering.labels_
     elif ctype == 'divk':
         #print(ctype)
+        #pdb.set_trace()
         from kmeans import bisecting_kmeans as divk
         clustering = divk.KMeans(n_clust)
         clustering.fit(list(X))
@@ -412,3 +472,60 @@ def cluster_draw_boundaries(patterns, activations, n_clust = 7, ctype = 'agglom'
         plt.imshow(p3[sorter], cmap = 'jet')
 
     return boundaries
+
+def sims_with_boundaries(patterns, clustering_mat, visualization_mat, n = 5, simtype = 'Cosine', extra_label = '',
+                        cut_offset_similarity = 62, cut_offset_raw = 598,
+                        lines = True, ctype = 'agglom', cut_type = 'clustering',
+                        plot_distortion = True, **kwargs):
+    if simtype == 'Cosine':
+        simfn = csim_pairs
+    elif simtype == 'L2':
+        simfn = l2_sim
+    else:
+        raise Exception
+    if plot_distortion:
+        a, b = 2, 2
+    else:
+        a, b = 1, 2
+    plt.rcParams["figure.figsize"]=(20, 20)
+
+    # todo bug when clustering_mat and visualization_mat are different, and cut type is 'pairwise'
+    feature_csims1 = simfn(visualization_mat.T)
+
+    plt.subplot(a, b, 1)
+    plt.imshow(np.log(1 + patterns), aspect=patterns.shape[1] / patterns.shape[0], cmap = 'jet')
+    o_cuts = ordered_cuts(patterns, clustering_mat, n, simfn = simfn, cut_type = cut_type,
+                               ctype = ctype, **kwargs)
+    
+    if lines:
+        draw_cuts(o_cuts, cut_offset_raw, 25, vlines = False, extent = cut_offset_raw * .95)
+
+    plt.subplot(a, b, 2)
+
+    _, boundaries, clust_cms = get_boundaries(patterns, clustering_mat, n, ctype = ctype, **kwargs)
+
+    N, M = patterns.shape
+    # feature_csims1 = csim_pairs(clustering_mat.T)
+    plt.title("{}, normalized{}".format(simtype, extra_label))
+    plt.imshow(feature_csims1, interpolation = 'none', cmap = 'jet')
+    if lines:
+        draw_cuts(o_cuts, cut_offset_similarity, 25, extent = cut_offset_similarity * .95)
+        
+    if plot_distortion:
+        plt.subplot(a, b, 3)
+        X = clustering_mat.T
+        d0 = X - (X).mean(axis = 0)
+        grid, D = distortion_curve(clustering_mat.T, **kwargs)
+        #D = np.hstack(([np.linalg.norm(d0)**2], D))
+#        print(D)
+#        print(np.diff(np.diff(D)))
+        plt.plot(grid, D, label = 'distortion')
+        plt.xlabel('Number of clusters', fontsize = 20)
+        plt.ylabel('expected min distortion', fontsize = 20)
+        plt.grid()
+        plt.subplot(a, b, 4)
+        plt.plot(grid[:-1], np.hstack(([np.nan], np.diff(np.diff(D)))), c = 'orange')
+        plt.xlabel('Number of clusters', fontsize = 20)
+        plt.ylabel('Double difference of expected min distortion', fontsize = 20)
+        plt.grid()
+    return feature_csims1, o_cuts
