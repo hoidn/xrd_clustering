@@ -165,6 +165,8 @@ def mutate_pattern(pattern, scale, q_grid, sigma_width = None, scale_type = 'sca
         noise = np.random.uniform(size = len(q_grid)) / 50
     elif noise_type == 'poisson':
         noise = poisson_additive(pattern, noise_scale = noise_scale, poisson_lam = poisson_lam)
+    else:
+        noise = 0
     return resampled + noise
 
 

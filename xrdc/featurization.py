@@ -124,7 +124,8 @@ def norm(arr, axis = 0, log_scale = False):
         print(global_min)
         for i in range(arr.shape[0]):
             ai = arr[xxi(i), yyi(i)]
-            arr[xxi(i), yyi(i)] = (ai - ai.min()) / ai.std()
+            arr[xxi(i), yyi(i)] = (ai ) / ai.std()
+            #arr[xxi(i), yyi(i)] = (ai - ai.min()) / ai.std()
             if log_scale:
                 arr[xxi(i), yyi(i)] *= (np.log(ai.mean() - global_min + 1))
         
@@ -529,3 +530,24 @@ def sims_with_boundaries(patterns, clustering_mat, visualization_mat, n = 5, sim
         plt.ylabel('Double difference of expected min distortion', fontsize = 20)
         plt.grid()
     return feature_csims1, o_cuts
+
+from dataproc.operations import hitp
+def fwhm_finder(patterns, peakShape = 'Voigt', numCurves = 1):
+    M = patterns.shape[1]
+    all_curves = [hitp.fit_peak(np.arange(M), y, peakShape=peakShape, numCurves=numCurves)[1] for y in patterns[::10]]
+    def get_fwhm(curves):
+        return np.mean([v['FWHM'] for v in curves.values()])
+    return np.median([get_fwhm(curves) for curves in all_curves])
+
+simtype, scaling = 'Cosine', 'linear'
+from IPython.display import Markdown as md
+def printinfo(simtype, scaling, linkage_type, clustering_type):
+    return md("""
+    Similarity type: {}
+
+    Scaling: {}
+    
+    Clustering type: {}
+    
+    Linkage: {}
+    """.format(simtype, scaling, clustering_type, linkage_type))

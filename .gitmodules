@@ -13,3 +13,9 @@
 [submodule "xrdc/dataproc"]
 	path = xrdc/dataproc
 	url = https://github.com/tangkong/dataproc.git
+[submodule "notebooks/robust-pca"]
+	path = notebooks/robust-pca
+	url = https://github.com/dganguli/robust-pca.git
+[submodule "notebooks/dataproc"]
+	path = notebooks/dataproc
+	url = https://github.com/tangkong/dataproc.git
