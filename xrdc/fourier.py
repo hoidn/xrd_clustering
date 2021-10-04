@@ -60,13 +60,19 @@ def clip_low_window(x, frac_zero):
 def highpass_g(size, y):
     return 1 - lowpass_g(size, y)
 
-def if_mag(patterns, arr, phase = 0, truncate = False):
+def if_mag(patterns, arr, phase = 0, truncate = False, toreal = 'psd'):
     trunc = len(arr) - len(patterns[0])
     phase = np.exp(1j * phase)
     tmp = ifft(arr)
+    if toreal == 'psd':
+        real = np.real(np.sqrt(np.conjugate(tmp) * tmp))
+    elif toreal == 'real':
+        real = np.real(tmp)
+    else:
+        raise ValueError
     if truncate:
-        return np.real(np.sqrt(np.conjugate(tmp * phase) * tmp))[trunc // 2: -trunc // 2]
-    return np.real(np.sqrt(np.conjugate(tmp * phase) * tmp))
+        return real[trunc // 2: -trunc // 2]
+    return real
 
 def spec_fft(patterns, i, pad = 1000, roll = 0, do_conv_window = False, do_window = True, log = False, dat = None):
     if dat is not None:
@@ -130,7 +136,7 @@ def conv_window(sig, mode = 'same'):
     return np.convolve(sig, tmp / tmp.max(), mode =mode)#if_mag(clip_low(ywf, .01) * window)
 
 def filter_bg(patterns, i, smooth = 1.5, window_type = 'gaussian', blackman = True,
-             deconvolve = False, invert = False):
+             deconvolve = False, invert = False, **kwargs):
     cutoff = 4
     window, ywf = spec_fft(patterns, i, 1000)
     if window_type == 'gaussian': #todo inversion
@@ -141,9 +147,9 @@ def filter_bg(patterns, i, smooth = 1.5, window_type = 'gaussian', blackman = Tr
             if invert:
                 window = 1 - window
             mask *= window
-            sig = if_mag(patterns, clipped * window)
+            sig = if_mag(patterns, clipped * window, **kwargs)
         else:
-            sig = if_mag(patterns, clipped)
+            sig = if_mag(patterns, clipped, **kwargs)
     else:
         raise ValueError
     if deconvolve:
