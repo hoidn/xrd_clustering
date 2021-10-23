@@ -182,14 +182,7 @@ def preprocess(patterns, bg_smooth = 80, smooth_ax1 = 'FWHM', smooth_ax0 = 2, bg
     smooth_ax1: 'FWHM' or numeric.
     """
     assert bgsub in [True, False]
-    bg = gf(patterns,bg_smooth)
     p = patterns.copy()
-    if bgsub:
-        p = p - bg
-        p = p - min(0, p.min()) # shift so that all values are positive
-
-    threshold = np.percentile(patterns, threshold_percentile)
-    p[p < threshold] = 0
 
     #p = np.log(1 + p)
     if smooth_ax1 == 'FWHM':
@@ -198,11 +191,20 @@ def preprocess(patterns, bg_smooth = 80, smooth_ax1 = 'FWHM', smooth_ax0 = 2, bg
     else:
         sig1 = smooth_ax1
         hwhm = None
-    sig0 = smooth_ax0
+
     if len(p.shape) == 2:
-        smoothed = gf(p, (sig0, sig1))
+        smooth_shape = (smooth_ax0, sig1)
     else:
-        smoothed = gf(p, (sig0, sig0, sig1))
+        smooth_shape = (smooth_ax0, smooth_ax0, sig1)
+    bg = gf(patterns, smooth_shape)
+    if bgsub:
+        p = p - bg
+        p = p - min(0, p.min()) # shift so that all values are positive
+
+    threshold = np.percentile(patterns, threshold_percentile)
+    p[p < threshold] = 0
+
+    smoothed = gf(p, smooth_shape)
     
     try:
         return smoothed, fwhm
@@ -236,21 +238,21 @@ def flood_thicken(labeled, arr, thresh = .95, max_hsize = 50):
         labeled[fillx, filly] = i
     return labeled
 
-def refine_and_label(arr, smoothed, thicken = True, do_flood_thicken = False, size_thresh = 2, sizetype = 'vertical',
+def refine_and_label(ridges, thicken = True, do_flood_thicken = False, size_thresh = 2, sizetype = 'vertical',
         max_size_flood = 50, flood_threshold = .95, thicken_ax0 = 1, thicken_ax1 = 'FWHM'):
     if thicken and do_flood_thicken:
         raise ValueError("only one of thicken and flood_thicken can be selected")
     if thicken:
-        arr = shuffle(arr, thicken_ax0, thicken_ax1)
+        ridges = shuffle(ridges, thicken_ax0, thicken_ax1)
     else:
-        arr = np.sign(arr)
+        ridges = np.sign(ridges)
 
-    if len(arr.shape) == 2:
+    if len(ridges.shape) == 2:
         structure = np.ones((3, 3), dtype=int)  # this defines the connection filter
-    if len(arr.shape) == 3:
+    if len(ridges.shape) == 3:
         structure = np.ones((3, 3, 3), dtype=int)
-    labeled, ncomponents = label(arr, structure)
-    indices = np.indices(arr.shape)#.T[:,:,[1, 0]]
+    labeled, ncomponents = label(ridges, structure)
+    indices = np.indices(ridges.shape)#.T[:,:,[1, 0]]
 #     xx, yy = indices
 
     j = 1
@@ -264,9 +266,10 @@ def refine_and_label(arr, smoothed, thicken = True, do_flood_thicken = False, si
 
     labeled = new_labeled
     if do_flood_thicken:
-        labeled = flood_thicken(labeled, smoothed, max_hsize = max_size_flood, thresh = flood_threshold)
-        labeled, ncomponents = label(labeled, structure) # merge overlapping features
-    return arr, labeled
+        raise NotImplementedError
+#        labeled = flood_thicken(labeled, smoothed, max_hsize = max_size_flood, thresh = flood_threshold)
+#        labeled, ncomponents = label(labeled, structure) # merge overlapping features
+    return ridges, labeled
 
 def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size_thresh = 2,
                       bgsub = False, bg_smooth = 80, log_scale_features = False, logscale_heatmap = True,
@@ -284,7 +287,7 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
     arr = get_ridges(smoothed)
     if thicken_ax1 == 'FWHM':
         thicken_ax1 = int(fwhm / 4) # TODO parameterize?
-    arr, labeled = refine_and_label(arr, smoothed, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
+    arr, labeled = refine_and_label(arr, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
         max_size_flood = max_size_flood, flood_threshold = flood_threshold, thicken_ax0 = thicken_ax0, thicken_ax1 = thicken_ax1)
     
     plt.subplot(a, b, 2)
@@ -305,11 +308,18 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
     feature_masks = np.array([labeled == i for i in range(1, labeled.max() + 1)])
     print(len(feature_masks))
 
-    activations = (feature_masks * patterns).sum(axis = 2)
+    def _norm(act):
+        return normf(act, 1, log_scale = log_scale_features)
+
+    activations = featurize(feature_masks, patterns)#(feature_masks * patterns).sum(axis = 2)
     #activations = (feature_masks * p).sum(axis = 2)
-    activations_n0 = normf(activations, 0, log_scale = log_scale_features)
+    #activations_n0 = normf(activations, 0, log_scale = log_scale_features)
     activations_n1 = normf(activations, 1, log_scale = log_scale_features)
-    return labeled, feature_masks, activations, activations_n0, activations_n1
+    return labeled, feature_masks, activations, _norm, activations_n1
+    #return labeled, feature_masks, activations, activations_n0, activations_n1
+
+def featurize(feature_masks, patterns):
+    return (feature_masks * patterns).sum(axis = 2)
 
 def do_clust(patterns, activations, n_clust, ctype = 'agglom', **kwargs):
     #print(kwargs)
