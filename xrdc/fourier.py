@@ -60,8 +60,9 @@ def clip_low_window(x, frac_zero):
 def highpass_g(size, y):
     return 1 - lowpass_g(size, y)
 
-def if_mag(patterns, arr, phase = 0, truncate = False, toreal = 'psd'):
-    trunc = len(arr) - len(patterns[0])
+def if_mag(arr, phase = 0, truncate = False, toreal = 'psd', **kwargs):
+    #print("arr shape", arr.shape)
+    #trunc = len(arr) - unpadded_length
     phase = np.exp(1j * phase)
     tmp = ifft(arr)
     if toreal == 'psd':
@@ -71,7 +72,8 @@ def if_mag(patterns, arr, phase = 0, truncate = False, toreal = 'psd'):
     else:
         raise ValueError
     if truncate:
-        return real[trunc // 2: -trunc // 2]
+        raise NotImplementedError
+        #return real[trunc // 2: -trunc // 2]
     return real
 
 def spec_fft(patterns, i, pad = 1000, roll = 0, do_conv_window = False, do_window = True, log = False, dat = None):
@@ -140,7 +142,7 @@ def filter_bg(patterns, i, smooth = 1.5, window_type = 'gaussian', blackman = Tr
     cutoff = 4
     window, ywf = spec_fft(patterns, i, 1000)
     if window_type == 'gaussian': #todo inversion
-        sig = if_mag(patterns, highpass_g(cutoff, ywf) * ywf)
+        sig = if_mag(patterns, highpass_g(cutoff, ywf) * ywf, **kwargs)
     elif window_type == 'step': # hard step
         clipped, mask = clip_low(ywf, .001, invert = invert)
         if blackman:
@@ -150,6 +152,47 @@ def filter_bg(patterns, i, smooth = 1.5, window_type = 'gaussian', blackman = Tr
             sig = if_mag(patterns, clipped * window, **kwargs)
         else:
             sig = if_mag(patterns, clipped, **kwargs)
+    else:
+        raise ValueError
+    if deconvolve:
+        sig = do_rl(sig, cutoff, 2.2)
+    sig = gf(sig, smooth)
+    return sig[1000: -1000]#, mask[1000: -1000]
+
+def spec_fft_2(pattern, pad = 1000, roll = 0, do_conv_window = False, do_window = True, log = False):
+    if log:
+        y = np.pad(np.log(pattern + 1), pad, mode = 'edge')
+    else:
+        y = np.pad(pattern, pad, mode = 'edge')
+    y = np.roll(y, roll)
+    # Number of sample points
+    N = y.shape[0]
+    w = blackman(N)
+    #w = 1
+    #yf = fft(y * w)
+    if do_window:
+        ywf = fft(y*w)
+    else:
+        ywf = fft(y)
+    if do_conv_window:
+        ywf = conv_window(ywf)
+    return w, ywf
+
+def filter_bg_2(pattern, smooth = 1.5, window_type = 'gaussian', blackman = True,
+             deconvolve = False, invert = False, **kwargs):
+    cutoff = 4
+    window, ywf = spec_fft_2(pattern, 1000)
+    if window_type == 'gaussian': #todo inversion
+        sig = if_mag(patterns, highpass_g(cutoff, ywf) * ywf, **kwargs)
+    elif window_type == 'step': # hard step
+        clipped, mask = clip_low(ywf, .001, invert = invert)
+        if blackman:
+            if invert:
+                window = 1 - window
+            mask *= window
+            sig = if_mag(clipped * window, **kwargs)
+        else:
+            sig = if_mag(clipped, **kwargs)
     else:
         raise ValueError
     if deconvolve:

@@ -105,7 +105,7 @@ def mk_pattern(intensities, qs, sigma, norm = True, with_grid = False):
         else:
             return res 
 
-def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .15):
+def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .15, clip = True):
     # todo not in module scope
     dq = q_grid[1] - q_grid[0]
     sigma_peakvar = dq * sigma_peakvar
@@ -123,8 +123,9 @@ def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .15):
         """
         epsilon = np.random.randn(N) * scale #todo parameterize
         F = 1 + np.matmul(L, epsilon)
-        mask = (F < 0)
-        F[mask] = 0
+        if clip:
+            mask = (F < 0)
+            F[mask] = 0
         return F
     return generate_peak_scales
 
@@ -288,7 +289,6 @@ from scipy.interpolate import interp1d
 def logtransform(x, y):
     logx = np.log(x)
     interp = interp1d(logx, y)
-
     logx_new = np.linspace(logx.min(), logx.max(), len(logx))
     return logx_new, interp(logx_new)
 
