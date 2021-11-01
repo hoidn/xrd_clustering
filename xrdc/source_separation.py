@@ -1,9 +1,8 @@
 import pandas as pd
 import numpy as np
-from scipy.fft import fft, fftfreq, ifft, fft2, ifft2, ifftshift
+from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift, fftn, ifftn
 from scipy.signal import blackman
 import matplotlib.pyplot as plt
-from scipy.fftpack import fft, fftshift
 from scipy.signal import butter
 from scipy import signal
 from scipy.signal import convolve2d as conv2
@@ -14,14 +13,12 @@ from scipy.interpolate import interp1d
 from scipy.interpolate import NearestNDInterpolator
 
 from xrdc import featurization as feat
-from xrdc import fourier
-
-#https://stackoverflow.com/questions/3662361/fill-in-missing-values-with-nearest-neighbour-in-python-numpy-masked-arrays
 from scipy import ndimage as nd
-def plot_df(*args):
-    df = pd.DataFrame([p for p, _ in args]).T
-    df.columns = [l for _, l in args ]
-    return df.plot()
+
+#def plot_df(*args):
+#    df = pd.DataFrame([p for p, _ in args]).T
+#    df.columns = [l for _, l in args ]
+#    return df.plot()
 
 def lowpass_g(size, y):
     gwindow = signal.gaussian(len(y), std = size)
@@ -29,21 +26,21 @@ def lowpass_g(size, y):
     L /= L.max()
     return L
 
-def clip_high(x, frac_zero):
-    x2  = x.copy()
-    mask = clip_high_filter(x, frac_zero)
-    return x2 * mask
+#def clip_high(x, frac_zero):
+#    x2  = x.copy()
+#    mask = clip_high_filter(x, frac_zero)
+#    return x2 * mask
 
-def clip_high_window(x, frac_zero):
-    """ low pass filter
-    """
-    x = ifftshift(x)
-    N = len(x)
-    nz = int(frac_zero * N)
-    x2  = np.ones_like(x)
-    x2[(N - nz) // 2 : (N + nz) // 2] = 0
-    #x2[(-nz) // 2:] = 0
-    return fftshift(x2)
+#def clip_high_window(x, frac_zero):
+#    """ low pass filter
+#    """
+#    x = ifftshift(x)
+#    N = len(x)
+#    nz = int(frac_zero * N)
+#    x2 = np.ones_like(x)
+#    x2[(N - nz) // 2: (N + nz) // 2] = 0
+#    #x2[(-nz) // 2:] = 0
+#    return fftshift(x2)
 
 def clip_low(x, frac_zero, invert = False, inc_window = False):
     x2  = x.copy()
@@ -64,30 +61,16 @@ def clip_low_window(x, frac_zero, invert = False, inc_window = False):
     if invert:
         mask = 1 - mask
     return fftshift(mask)
-#     x2[:( nz) // 2 ] = 0
-#     x2[(-nz) // 2:] = 0
     return x2, mask
 
 def highpass_g(size, y):
     return 1 - lowpass_g(size, y)
 
-def if_mag(patterns, arr, phase = 0, truncate = False, **kwargs):
-    trunc = len(arr) - len(patterns[0])
-    phase = np.exp(1j * phase)
-    tmp = ifft(ifftshift(arr))
-    if truncate:
-        return np.real(np.sqrt(np.conjugate(tmp * phase) * tmp))[trunc // 2: -trunc // 2]
-    return np.real(np.sqrt(np.conjugate(tmp * phase) * tmp))
-
-def spec_fft(patterns, i, pad = 1000, roll = 0, do_conv_window = False, do_window = True, log = False, dat = None):
-    if dat is not None:
-        pi = dat
-    else:
-        pi = patterns[i]
+def spec_fft_2(pattern, pad = 1000, roll = 0, do_conv_window = False, do_window = True, log = False):
     if log:
-        y = np.pad(np.log(pi + 1), pad, mode = 'edge')
+        y = np.pad(np.log(pattern + 1), pad, mode = 'edge')
     else:
-        y = np.pad(pi, pad, mode = 'edge')
+        y = np.pad(pattern, pad, mode = 'edge')
     y = np.roll(y, roll)
     # Number of sample points
     N = y.shape[0]
@@ -95,14 +78,17 @@ def spec_fft(patterns, i, pad = 1000, roll = 0, do_conv_window = False, do_windo
     #w = 1
     #yf = fft(y * w)
     if do_window:
-        ywf = fftshift(fft(y*w))
+        ywf = fft(y*w)
     else:
-        ywf = fftshift(fft(y))
+        ywf = fft(y)
     if do_conv_window:
         ywf = conv_window(ywf)
     return w, ywf
 
 def power(arr):
+    """
+    Return squared amplitude of an array.
+    """
     ampsq = arr * np.conjugate(arr)
     return np.real(ampsq)
 
@@ -114,6 +100,9 @@ def lorenz(gamma, x, x0):
 
 def do_rl(sig, window_width = 4, peak_width = 2, window_type = 'gaussian',
          bwindow = None, norm = False):
+    """
+    Richardson-Lucy deconvolution
+    """
     if window_type == 'gaussian':
         gwindow = signal.gaussian(len(y), std = window_width)
         #gwindow = lorenz(peak_width, np.arange(len(sig)), len(sig) // 2)
@@ -138,12 +127,22 @@ def do_rl(sig, window_width = 4, peak_width = 2, window_type = 'gaussian',
 
 def conv_window(sig, mode = 'same'):
     tmp = np.real(np.sqrt(fftshift(fft(window)) * np.conjugate(fftshift(fft(window)))))
-    return np.convolve(sig, tmp / tmp.max(), mode =mode)#if_mag(clip_low(ywf, .01) * window)
+    return np.convolve(sig, tmp / tmp.max(), mode =mode)
 
-def filter_bg(patterns, i, smooth = 1.5, window_type = 'gaussian', blackman = True,
-             deconvolve = False, invert = False):
+def filter_bg(pattern, smooth = 1.5, window_type = 'gaussian', blackman = True,
+             deconvolve = False, invert = False, **kwargs):
+    """
+    Extract high-frequency component (in q) from a 2d XRD dataset by
+    high-pass filtering, taking the IFFT amplitude, and applying a
+    gaussian smoothing.
+
+    Optionally multiply the FFT output by a Blackman window envelope.
+
+    The option for deconvolution should be considered deprecated since
+    it doesn't help with extraction.
+    """
     cutoff = 4
-    window, ywf = spec_fft(patterns, i, 1000)
+    window, ywf = spec_fft_2(pattern, 1000)
     if window_type == 'gaussian': #todo inversion
         sig = if_mag(patterns, highpass_g(cutoff, ywf) * ywf, **kwargs)
     elif window_type == 'step': # hard step
@@ -152,9 +151,9 @@ def filter_bg(patterns, i, smooth = 1.5, window_type = 'gaussian', blackman = Tr
             if invert:
                 window = 1 - window
             mask *= window
-            sig = if_mag(patterns, clipped * window, **kwargs)
+            sig = if_mag(clipped * window, **kwargs)
         else:
-            sig = if_mag(patterns, clipped, **kwargs)
+            sig = if_mag(clipped, **kwargs)
     else:
         raise ValueError
     if deconvolve:
@@ -168,6 +167,9 @@ import numpy as np
 
 def iplot_rows(patterns, patterns2 = None, label1 = 'raw', label2 = 'curve fit subtraction',
               log = False, offset = 0, height = '550px'):
+    """
+    Plot a series of curves interactively.
+    """
     plt.rcParams["figure.figsize"]=(12, 9)
     def f(i):
         if log:
@@ -186,89 +188,43 @@ def iplot_rows(patterns, patterns2 = None, label1 = 'raw', label2 = 'curve fit s
 def logim(arr, offset = 1):
     plt.imshow(np.log(offset + arr), cmap = 'jet')
 
-def mk_black2d(y2d, fraction):
-    N, M = y2d.shape
-    n = m = fraction
-    nwin, mwin = 2 * (int(n * N) // 2), 2 * (int(m * M) // 2)
-    w2d = blackman(nwin)[:, None] * blackman(mwin)
-    w2d = np.pad(w2d, (M - mwin) // 2)
-    w2d = np.sqrt(1e-9 + w2d)
-    trim = w2d.shape[0] - N
-    w2d = w2d[trim // 2: -trim // 2]
-    return w2d
+#def mk_black2d(y2d, fraction):
+#    """
+#    Make a two-dimensional Blackman filter.
+#    """
+#    N, M = y2d.shape
+#    n = m = fraction
+#    nwin, mwin = 2 * (int(n * N) // 2), 2 * (int(m * M) // 2)
+#    w2d = blackman(nwin)[:, None] * blackman(mwin)
+#    w2d = np.pad(w2d, (M - mwin) // 2)
+#    w2d = np.sqrt(1e-9 + w2d)
+#    trim = w2d.shape[0] - N
+#    w2d = w2d[trim // 2: -trim // 2]
+#    return w2d
 
-def clip_low2d(x, frac_zero):
-    N = len(x)
-    nz = int(frac_zero * N)
-    x2  = x.copy()
-    x2[:( nz) // 2 ] = 0
-    x2[(-nz) // 2:] = 0
-    return x2
-
-def spec_fft2(do_window = True):
-    if do_window:
-        ywf = fft2(y*w)
-    else:
-        ywf = fft2(y)
-    if do_conv_window:
-        ywf = conv_window(ywf)
-    return w, ywf
-
-def if_mag(patterns, arr, phase = 0, truncate = False, **kwargs):
-    trunc = len(arr) - len(patterns[0])
+def if_mag(arr, phase = 0, truncate = False, toreal = 'psd', **kwargs):
+    """
+    Return the amplitude or real component of the inverse fourier
+    transform, with optional phase shift.
+    """
     phase = np.exp(1j * phase)
-    tmp = ifft2(arr)
-    if truncate:
-        return np.real(np.sqrt(np.conjugate(tmp * phase) * tmp))[trunc // 2: -trunc // 2]
-    return np.real(np.sqrt(np.conjugate(tmp * phase) * tmp))
-
-def spec_separate(patterns, pad = None, i = 0, ftype = 'step', std = 4, cutoff = .9,
-        window_high = False):
-    """
-    separate signal into low and high-frequency components
-    """
-    # TODO refactor
-    N = len(patterns[0])
-    if pad is None:
-        pad = N
-    g = y = np.pad(patterns[i], pad, mode = 'edge')
-    window, ywf = spec_fft(patterns, i, pad)
-    
-    if ftype == 'step':
-        L = clip_high_window(ywf, cutoff)
-        H = 1 - L
-    elif ftype == 'gaussian':
-        gwindow = signal.gaussian(len(y), std = std)
-
-        L = np.absolute(fftshift(fft(gwindow))) * window
-        L /= np.absolute(L).max()
-        H = 1 - L
+    tmp = ifft(arr)
+    if toreal == 'psd':
+        real = np.real(np.sqrt(np.conjugate(tmp) * tmp))
+    elif toreal == 'real':
+        real = np.real(tmp)
     else:
-        raise Exception
-    if window_high:
-        H = H * window
-    gfft = fftshift(fft(g))
-
-    low = np.real(ifft(ifftshift(gfft * L)))[pad: -pad]
-    high = np.real(ifft(ifftshift(gfft * H)))[pad: -pad]
-
-    return high, low, (g, gfft, H, L)
-
-def separate_2d(arr, **kwargs):
-    high = []
-    low = []
-    for i in range(len(arr)):
-        h, l, _ = spec_separate(arr, i = i, **kwargs)
-        high.append(h)
-        low.append(l)
-    return np.vstack(high), np.vstack(low)
+        raise ValueError
+    if truncate:
+        raise NotImplementedError
+    return real
 
 def extract_single(row):
     """
     Default procedure for extracting the high-frequency component of a
     single 1d diffraction pattern.
     """
-    return fourier.filter_bg_2(row, 0, window_type = 'step', deconvolve = False, toreal = 'psd')
+    return filter_bg(row, 0, window_type = 'step', deconvolve = False, toreal = 'psd')
 
 def apply_bottom(func, arr):
     """
@@ -276,25 +232,33 @@ def apply_bottom(func, arr):
     """
     return np.apply_along_axis(func, len(arr.shape) - 1, arr)
 
-def default_smooth(arr):
-    # TODO move this to configuration
-    if len(arr.shape) == 3:
-        return (1, 1, 1.7)
-    elif len(arr.shape) == 2:
-        return (1, 1.7)
-    else:
-        return ValueError
+def mk_smooth(patterns, smooth_neighbor, smooth_q):
+    n = len(patterns.shape)
+    return (smooth_neighbor,) * (n - 1) + (smooth_q,)
 
-def reference_bgsub(patterns):
+#def default_smooth(arr):
+#    """
+#    Gaussian smoothing kernels used in the extraction of peak regions.
+#    The q-smoothing parameter should be set according to the typical peak
+#    width, while the neighbor smoothing shouldn't have to change if
+#    standard assumptions apply.
+#    """
+#    # TODO move this to configuration
+#    if len(arr.shape) == 3:
+#        return (1, 1, 1.7)
+#    elif len(arr.shape) == 2:
+#        return (1, 1.7)
+#    else:
+#        return ValueError
+
+def reference_bgsub(patterns, smooth_q = 1.7, smooth_neighbor = 1, **kwargs):
     """
     Extract high-frequency component (in q) from a 2d XRD dataset. This
     method distorts peak intensities but is good at identifying their
     locations.
     """
     bgsubbed_nosmooth = apply_bottom(extract_single, patterns)
-#    bgsubbed_nosmooth = np.vstack([extract_single(patterns[i])
-#                               for i in range(len(patterns))])
-    bgsubbed_final = gf(bgsubbed_nosmooth, default_smooth(patterns))
+    bgsubbed_final = gf(bgsubbed_nosmooth, mk_smooth(patterns, smooth_neighbor, smooth_q))
     bgsubbed_final *= patterns.max() / bgsubbed_final.max() #np.percentile(patterns, 99.9) / np.percentile(bgsubbed_final, 99.9)
     return bgsubbed_final
 
@@ -322,29 +286,28 @@ def interprows(arr, mask):
                 res[i, j, :] = f(np.indices(row.shape)[0])
         return res
 
-def get_bgmask(patterns, threshold):
+def get_bgmask(patterns, threshold, **kwargs):
     """
     Find peak regions and return a mask that identifies them.
     """
-    bgsubbed = reference_bgsub(patterns)
+    bgsubbed = reference_bgsub(patterns, **kwargs)
     bgsubbed[bgsubbed > np.percentile(bgsubbed, threshold)] = np.nan
     bkgmask = ~np.isnan(bgsubbed)
     return bkgmask
 
-def get_background_nan(patterns, threshold = 50, smooth = None):
+def get_background_nan(patterns, threshold = 50, smooth_q = 1.7, smooth_neighbor = 1):
     # TODO smooth or not?
-    if smooth is None:
-        smooth = default_smooth(patterns)
-    bkgmask = get_bgmask(patterns, threshold)
+    smooth = mk_smooth(patterns, smooth_neighbor, smooth_q)
+    bkgmask = get_bgmask(patterns, threshold, smooth_q = smooth_q, smooth_neighbor = smooth_neighbor)
     filled_bg = interprows(patterns, bkgmask)
     smooth_bg = gf(filled_bg, smooth)
     return smooth_bg
 
-def get_background(patterns, threshold = 50, smooth = None, method = 'simple'):
-    if smooth is None:
-        smooth = default_smooth(patterns)
+def get_background(patterns, threshold = 50, method = 'simple', smooth_q = 1.7, smooth_neighbor = 1):
+    smooth = mk_smooth(patterns, smooth_neighbor, smooth_q)
     if method == 'simple':
-        smooth_bg = get_background_nan(patterns, threshold = threshold, smooth = smooth)
+        smooth_bg = get_background_nan(patterns, threshold = threshold,
+            smooth_q = smooth_q, smooth_neighbor = smooth_neighbor)
         mask = np.where(~np.isnan(smooth_bg))
         # TODO am i getting the higher-dimensional nearest neighbor?
         interp = NearestNDInterpolator(np.transpose(mask), smooth_bg[mask])
@@ -356,16 +319,6 @@ def get_background(patterns, threshold = 50, smooth = None, method = 'simple'):
         raise ValueError
     return filled_data
 
-def separate_signal(patterns, T_filter_type = 'gaussian'):
-    # TODO clean up
-    filled_data = get_background(patterns)
-    # interpolation of slow-varying background
-    slow_q = get_background(patterns)
-    # crystalline diffraction + high-frequency noise (original data minus interpolated background)
-    fast_q = patterns - filled_data
-    # high-T frequency noise, low-T frequency signal
-    fast_T, slow_T = separate_2d(fast_q.T, ftype = T_filter_type, std = .5)
-    return slow_q, fast_q, slow_T, fast_T
 
 def draw_circle(arr,diamiter):
     '''
@@ -385,54 +338,49 @@ def draw_circle(arr,diamiter):
         for ix in range(shape[1]):
             TF[iy,ix] = (iy- center[0] + .5)**2 + (ix - center[1] + .5)**2 < diamiter **2
     return(TF)
-def gauss2d(sigma):
+
+
+# from functools import reduce
+def gaussNd(sigma):
+    """
+    Returns a function that's a gaussian over a cube of coordinates
+    of any dimension.
+    """
     N = 1 / (sigma * np.sqrt(2 * np.pi))
-    def f(x, y):
-        n, m = x.shape
-        def g(xp, yp):
-            return np.exp(- (xp**2 + yp**2) / (2 * sigma**2))
+    def f(*args):
+        n = args[0].shape[0]
+        def g(*args2):
+            args_sq = (np.array(args2) * np.array(args2)).sum(axis = 0)
+            return np.exp(- args_sq / (2 * sigma**2))
         # TODO check the offset
         x0 = (n  -1) / 2
-        y0 = (m - 1) / 2
-        return N * g(x - x0, y - y0)
-        return N * g(x - ((n - 1) / 2), y - ((m - 1) / 2))
-        #return N * (g(x, y) + g(n - x - .5, y) + g(x, m - y - .5) + g(n - x - .5, m - y - .5))
+        return N * g(*(arg - x0 for arg in args))
     return f
-    
-def gauss_low_2d(arr, cutoff):
-    n = len(arr)
-    x, y = np.indices(arr.shape)
-    sigma = cutoff * n
-    return (gauss2d(sigma)(x, y))
 
-def lowpass2d(arr, cutoff, mode = 'gaussian'):
+def gauss_low_Nd(arr, cutoff):
+    # TODO assert cubic shape
+    n = len(arr)
+    args = np.indices(arr.shape)
+    sigma = cutoff * n
+    return (gaussNd(sigma)(*args))
+
+def lowpassNd(arr, cutoff, mode = 'gaussian'):
     """
     Low pass filter with a circular step aperture
     """
     if mode == 'step':
+        raise NotImplementedError # TODO update this
         mask = draw_circle(arr, int(cutoff * ((arr.shape[0] + arr.shape[1]) / 2)))
     elif mode == 'gaussian':
-        mask = gauss_low_2d(arr, cutoff)
+        mask = gauss_low_Nd(arr, cutoff)
         mask /= mask.max()
     else:
         raise ValueError
-    arrfft = fftshift(fft2(arr))
-    arr_filtered = ifft2(ifftshift(mask * arrfft))
+    arrfft = fftshift(fftn(arr))
+    arr_filtered = ifftn(ifftshift(mask * arrfft))
     return arr_filtered
-def separate_signal_2(patterns, cutoff = .2, mode = 'gaussian', **kwargs):
-    # TODO take cutoff parameter for q filtering as well
-    interpolated_background = get_background(patterns, **kwargs)
-    fast_q = patterns - interpolated_background
 
-    # calculate the low-frequency component in xy
-    nq = patterns.shape[-1]
-    low_xy = np.zeros_like(patterns)
-    wafer_mask = (patterns.sum(axis = 2) != 0)
-    for i in range(nq):
-        low_xy[..., i] = np.absolute(lowpass2d(fill(patterns[..., i], patterns[..., i] == 0), cutoff, mode)) * wafer_mask
 
-    high_xy = patterns - low_xy
-    return interpolated_background, fast_q, low_xy, high_xy
 
 def imshow_log(arr):
     """plot log of absolute value heatmap, with an offset
@@ -443,6 +391,7 @@ def imshow_log(arr):
     plt.imshow(np.log(floor + arr ), cmap = 'jet')
 
 
+#https://stackoverflow.com/questions/3662361/fill-in-missing-values-with-nearest-neighbour-in-python-numpy-masked-arrays
 def fill(data, invalid=None):
     """
     Replace the value of invalid 'data' cells (indicated by 'invalid') 
@@ -507,3 +456,25 @@ def CTinterpolation(imarray, smoothing = 0):
     # Fill in NAN values from outside the convex hull of the interpolated points
     combined = fill(CTinterpolated)# np.where(np.isnan(CTinterpolated), smoothNN, CTinterpolated)
     return combined
+
+# This function is the main entry point
+def separate_signal(patterns, cutoff = .2, mode = 'gaussian', **kwargs):
+    """
+    Decompose a dataset into high- and low-frequency components in  the
+    non-q dimensions.
+    Any rows that sum to zero are neglected.
+
+    Returns interpolated background, raw patterns - interpolated background,
+        low-frequency non-q signal, high-frequency non-q signal)
+    """
+    # TODO take cutoff parameter for q filtering as well
+    interpolated_background = get_background(patterns, **kwargs)
+    fast_q = patterns - interpolated_background
+    # calculate the low-frequency component in xy
+    nq = patterns.shape[-1]
+    low_xy = np.zeros_like(patterns)
+    wafer_mask = (patterns.sum(axis = (len(patterns.shape) - 1)) != 0)
+    for i in range(nq):
+        low_xy[..., i] = np.absolute(lowpassNd(fill(patterns[..., i], patterns[..., i] == 0), cutoff, mode)) * wafer_mask
+    high_xy = patterns - low_xy
+    return interpolated_background, fast_q, low_xy, high_xy
