@@ -1,18 +1,15 @@
 import pandas as pd
 import numpy as np
-from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift, fftn, ifftn
-from scipy.signal import blackman
 import matplotlib.pyplot as plt
+
 from scipy.signal import butter
 from scipy import signal
 from scipy.signal import convolve2d as conv2
-
-from skimage import color, data, restoration
+from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift, fftn, ifftn
+from scipy.signal import blackman
 from scipy.ndimage import gaussian_filter as gf
 from scipy.interpolate import interp1d
 from scipy.interpolate import NearestNDInterpolator
-
-from xrdc import featurization as feat
 from scipy import ndimage as nd
 
 #def plot_df(*args):
@@ -100,6 +97,7 @@ def lorenz(gamma, x, x0):
 
 def do_rl(sig, window_width = 4, peak_width = 2, window_type = 'gaussian',
          bwindow = None, norm = False):
+    from skimage import color, data, restoration
     """
     Richardson-Lucy deconvolution
     """
