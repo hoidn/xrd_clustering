@@ -462,12 +462,13 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian', **kwargs):
     non-q dimensions.
     Any rows that sum to zero are neglected.
 
-    Returns interpolated background, raw patterns - interpolated background,
-        low-frequency non-q signal, high-frequency non-q signal)
+    Returns tuple:
+        (interpolated background (excluding high-frequency non-q component),
+        signal (excluding high-frequency non-q component) - interpolated background,
+        low-frequency non-q signal,
+        high-frequency non-q signal))
     """
-    # TODO take cutoff parameter for q filtering as well
-    interpolated_background = get_background(patterns, **kwargs)
-    fast_q = patterns - interpolated_background
+    # TODO filter T before background
     # calculate the low-frequency component in xy
     nq = patterns.shape[-1]
     low_xy = np.zeros_like(patterns)
@@ -475,4 +476,11 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian', **kwargs):
     for i in range(nq):
         low_xy[..., i] = np.absolute(lowpassNd(fill(patterns[..., i], patterns[..., i] == 0), cutoff, mode)) * wafer_mask
     high_xy = patterns - low_xy
+
+#    # TODO take cutoff parameter for q filtering as well
+#    interpolated_background = get_background(patterns, **kwargs)
+#    fast_q = patterns - interpolated_background
+
+    interpolated_background = get_background(low_xy, **kwargs)
+    fast_q = low_xy - interpolated_background
     return interpolated_background, fast_q, low_xy, high_xy

@@ -95,13 +95,22 @@ coords_to_idx = {tuple(c): i for i, c in enumerate(coords)}
 coordi = coords - 1
 dim = coordi.max() + 1
 
-#m3d = np.zeros((dim, dim, 2))
-m3d = np.zeros((dim, dim, X.shape[1]))
+def to_3d(X):
+    m3d = np.zeros((dim, dim, X.shape[1]))
+    for k, (i, j) in enumerate(coordi):
+        m3d[i, j, :] = X[k]
+    return m3d
 
+def to_2d(m3d):
+    res = np.zeros_like(X)
+    for k, (i, j) in enumerate(coordi):
+        res[k] = m3d[i, j, :] 
+    return res
 
-for k, (i, j) in enumerate(coordi):
-    m3d[i, j, :] = X[k]
-    
+m3d = to_3d(X)
 
 def get_data():
     return m3d
+
+def get_2d():
+    return X

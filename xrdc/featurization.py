@@ -58,13 +58,34 @@ def distortion_curve(X, Kmax = 15, **kwargs):
         #d = distortions(X, gm.means_, np.linalg.inv(gm.covariances_)).mean()
         D[i] = d#**(-Y)
     return grid, D[1:]
+
+def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 20, area_min = 1000):
+    """
+    Return an array of 1s in indices corresponding to a peak (+- HWHM) and 0s elsewhere. 
+    
+    fit_list: list of derived curve fit parameters.
+    
+    Only the first curve in each group of fits is counted.
+    """
+    res = np.zeros_like(pattern)
+    for peaks in fit_list:
+        primary = peaks['curve 0']
+        qwhm = int((primary['FWHM'] + 1) / 3)
+        i0 = int(primary['x0'] + .5)
+        if i0 >= imin and primary['FWHM'] <= fwhm_max:# and primary['area'] > area_min:
+            res[i0 - qwhm: i0 + qwhm] = 1
+    return res
+
+def color_peaks_2d(fitlists, patterns, **kwargs):
+    return np.vstack([color_peaks(fitlist, patterns[i], **kwargs) for i, fitlist in enumerate(fitlists)])
+
 # this one comes from head, might be different
-def get_ridges(orig, axis = 1):
+def get_ridges(orig, axis = 1, fitlists = None):
+    if fitlists is not None:
+        print("using fitlists")
+        return color_peaks_2d(fitlists, orig)
     # determine the indices of the local maxima
     max_ind = argrelextrema(orig, np.greater, axis = axis)
-#     max_ind_2 = argrelextrema(orig, np.greater, axis = 0)
-#     max_ind = np.hstack((max_ind[0], max_ind_2[0])), np.hstack((max_ind[1], max_ind_2[1]))
-    
     edges = np.zeros_like(orig)
     edges[max_ind] = 1
     return edges
@@ -275,16 +296,16 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
                       bgsub = False, bg_smooth = 80, log_scale_features = False, logscale_heatmap = True,
                       smooth_ax1 = 'FWHM', smooth_ax0 = 2, fwhm_finder = None, smooth_factor_ax1 = 0.25,
                       a = 5, b = 1, normf = norm, do_flood_thicken = False, max_size_flood = 50, flood_threshold = .95,
-                      thicken_ax0 = 1, thicken_ax1 = 'FWHM'):
+                      thicken_ax0 = 1, thicken_ax1 = 'FWHM', **kwargs):
 
     plt.rcParams["figure.figsize"]=(20, 13)
     plt.subplot(a, b, 1)
     plt.title('ridges')
-    plt.imshow(get_ridges(patterns), cmap = 'jet')
+    plt.imshow(get_ridges(patterns, **kwargs), cmap = 'jet')
 
     smoothed, fwhm = preprocess(patterns, bg_smooth, bgsub = bgsub, threshold_percentile = threshold_percentile,
         smooth_ax1 = smooth_ax1, smooth_ax0 = smooth_ax0, fwhm_finder = fwhm_finder, smooth_factor_ax1 = smooth_factor_ax1)
-    arr = get_ridges(smoothed)
+    arr = get_ridges(smoothed, **kwargs)
     if thicken_ax1 == 'FWHM':
         thicken_ax1 = int(fwhm / 4) # TODO parameterize?
     arr, labeled = refine_and_label(arr, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
@@ -301,9 +322,9 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
     plt.subplot(a, b, 5)
     plt.title('final feature masks (overlayed)')
     if logscale_heatmap:
-        plt.imshow(np.log(1 + patterns), cmap = 'jet')
+        plt.imshow(np.log(1 + patterns), cmap = 'jet', interpolation = 'none')
     else:
-        plt.imshow(patterns, cmap = 'jet')
+        plt.imshow(patterns, cmap = 'jet', interpolation = 'none')
     plt.imshow(np.sign(labeled), cmap='Greys', alpha = .5)
     feature_masks = np.array([labeled == i for i in range(1, labeled.max() + 1)])
     print(len(feature_masks))
