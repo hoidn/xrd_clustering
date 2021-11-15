@@ -59,7 +59,6 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     
     # restrict range?
     subx, suby = np.arange(len(y)) + 1, y
-    #pdb.set_trace()
     
     if background is None:
         # Background subtract/move to zero
@@ -116,6 +115,10 @@ def fit_curves(y, **kwargs):
 
 
 def curvefit_2d(patterns, background = None, noise_estimate = None, **kwargs):
+    """
+    Run BBA and peak-fitting routine for each XRD pattern in a
+    multidimensional dataset whose last axis is the q dimension.
+    """
     def _background(i):
         if background is not None:
             return background[i]
