@@ -298,7 +298,7 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
                       a = 5, b = 1, normf = norm, do_flood_thicken = False, max_size_flood = 50, flood_threshold = .95,
                       thicken_ax0 = 1, thicken_ax1 = 'FWHM', **kwargs):
 
-    plt.rcParams["figure.figsize"]=(20, 13)
+    plt.rcParams["figure.figsize"]=(20, 18)
     plt.subplot(a, b, 1)
     plt.title('ridges')
     plt.imshow(get_ridges(patterns, **kwargs), cmap = 'jet')
@@ -317,7 +317,11 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
 
     plt.subplot(a, b, 4)
     plt.title('final feature masks')
-    plt.imshow(labeled, cmap = 'jet')
+
+    from matplotlib import colors
+    cmap = colors.ListedColormap(list('kbgrcmy'))
+    plt.imshow((labeled % 7) + (labeled != 0), cmap= cmap, interpolation = 'none')
+    #plt.imshow(labeled, cmap = 'jet')
 
     plt.subplot(a, b, 5)
     plt.title('final feature masks (overlayed)')
@@ -325,6 +329,7 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
         plt.imshow(np.log(1 + patterns), cmap = 'jet', interpolation = 'none')
     else:
         plt.imshow(patterns, cmap = 'jet', interpolation = 'none')
+
     plt.imshow(np.sign(labeled), cmap='Greys', alpha = .5)
     feature_masks = np.array([labeled == i for i in range(1, labeled.max() + 1)])
     print(len(feature_masks))
