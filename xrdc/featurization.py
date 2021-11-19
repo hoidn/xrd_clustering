@@ -59,7 +59,8 @@ def distortion_curve(X, Kmax = 15, **kwargs):
         D[i] = d#**(-Y)
     return grid, D[1:]
 
-def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 20, area_min = 1000):
+def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 20, area_min = 1000,
+        peakwidth = 'auto'):
     """
     Return an array of 1s in indices corresponding to a peak (+- HWHM) and 0s elsewhere. 
     
@@ -68,22 +69,39 @@ def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 20, area_min = 1000):
     Only the first curve in each group of fits is counted.
     """
     res = np.zeros_like(pattern)
+    if fit_list is None:
+        return res
     for peaks in fit_list:
         primary = peaks['curve 0']
-        qwhm = int((primary['FWHM'] + 1) / 3)
+        if peakwidth == 'auto':
+            peakwidth = int((primary['FWHM'] + 1) / 4)
+        #qwhm = 1
         i0 = int(primary['x0'] + .5)
         if i0 >= imin and primary['FWHM'] <= fwhm_max:# and primary['area'] > area_min:
-            res[i0 - qwhm: i0 + qwhm] = 1
+            res[i0 - peakwidth: i0 + peakwidth] = 1
     return res
 
 def color_peaks_2d(fitlists, patterns, **kwargs):
+    assert fitlists.shape == patterns.shape[:-1]
     return np.vstack([color_peaks(fitlist, patterns[i], **kwargs) for i, fitlist in enumerate(fitlists)])
 
+def color_peaks_3d(fitlists_3d, patterns, **kwargs):
+    from . import source_separation as sep
+    assert len(fitlists_3d.shape) == 2
+    assert len(patterns.shape) == 3
+    return np.array([color_peaks_2d(fitlists_2d, patterns[i], **kwargs) for i, fitlists_2d in enumerate(fitlists_3d)])
+
+import pdb
 # this one comes from head, might be different
-def get_ridges(orig, axis = 1, fitlists = None):
+def get_ridges(orig, axis = 1, fitlists = None, **kwargs):
     if fitlists is not None:
         print("using fitlists")
-        return color_peaks_2d(fitlists, orig)
+        if len(orig.shape) == 2:
+            return color_peaks_2d(fitlists, orig, **kwargs)
+        elif len(orig.shape) == 3:
+            return color_peaks_3d(fitlists, orig, **kwargs)
+        else:
+            raise ValueError
     # determine the indices of the local maxima
     max_ind = argrelextrema(orig, np.greater, axis = axis)
     edges = np.zeros_like(orig)
@@ -92,8 +110,8 @@ def get_ridges(orig, axis = 1, fitlists = None):
 
 def shuffle(bin_img, thicken_ax0 = 1, thicken_ax1 = 1):
     ret = np.zeros_like(bin_img)
-    for s0 in range(-thicken_ax0, thicken_ax0 + 1):
-        for s1 in range(-thicken_ax1, thicken_ax1 + 1):
+    for s0 in range(-round(thicken_ax0), round(thicken_ax0) + 1):
+        for s1 in range(-round(thicken_ax1), round(thicken_ax1) + 1):
             ret += np.roll(bin_img, s0, axis = 0)
             ret += np.roll(bin_img, s1, axis = 1)
             if len(bin_img.shape) == 3:
@@ -292,45 +310,55 @@ def refine_and_label(ridges, thicken = True, do_flood_thicken = False, size_thre
 #        labeled, ncomponents = label(labeled, structure) # merge overlapping features
     return ridges, labeled
 
+def imshow_labeled(labeled):
+    from matplotlib import colors
+    cmap = colors.ListedColormap(list('kbgrcmy'))
+    plt.imshow((labeled % 7) + (labeled != 0), cmap= cmap, interpolation = 'none')
+    #plt.imshow(labeled, cmap = 'jet')
+
 def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size_thresh = 2,
                       bgsub = False, bg_smooth = 80, log_scale_features = False, logscale_heatmap = True,
                       smooth_ax1 = 'FWHM', smooth_ax0 = 2, fwhm_finder = None, smooth_factor_ax1 = 0.25,
                       a = 5, b = 1, normf = norm, do_flood_thicken = False, max_size_flood = 50, flood_threshold = .95,
                       thicken_ax0 = 1, thicken_ax1 = 'FWHM', **kwargs):
 
-    plt.rcParams["figure.figsize"]=(20, 18)
-    plt.subplot(a, b, 1)
-    plt.title('ridges')
-    plt.imshow(get_ridges(patterns, **kwargs), cmap = 'jet')
 
-    smoothed, fwhm = preprocess(patterns, bg_smooth, bgsub = bgsub, threshold_percentile = threshold_percentile,
+    packed_pp = preprocess(patterns, bg_smooth, bgsub = bgsub, threshold_percentile = threshold_percentile,
         smooth_ax1 = smooth_ax1, smooth_ax0 = smooth_ax0, fwhm_finder = fwhm_finder, smooth_factor_ax1 = smooth_factor_ax1)
-    arr = get_ridges(smoothed, **kwargs)
     if thicken_ax1 == 'FWHM':
         thicken_ax1 = int(fwhm / 4) # TODO parameterize?
+        smoothed, fwhm = packed_pp
+    else:
+        smoothed = packed_pp
+
+    arr = get_ridges(smoothed, **kwargs)
     arr, labeled = refine_and_label(arr, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
         max_size_flood = max_size_flood, flood_threshold = flood_threshold, thicken_ax0 = thicken_ax0, thicken_ax1 = thicken_ax1)
     
-    plt.subplot(a, b, 2)
-    plt.title('ridges (smoothed)')
-    plt.imshow(arr, cmap = 'jet')
+    if len(patterns.shape) == 2:
+        # TODO handle 3d case
+        plt.rcParams["figure.figsize"]=(20, 18)
+        plt.subplot(a, b, 1)
+        plt.title('ridges')
+        plt.imshow(get_ridges(patterns, **kwargs), cmap = 'jet')
+        plt.subplot(a, b, 2)
+        plt.title('ridges (smoothed)')
+        plt.imshow(arr, cmap = 'jet')
 
-    plt.subplot(a, b, 4)
-    plt.title('final feature masks')
+        plt.subplot(a, b, 4)
+        plt.title('final feature masks')
 
-    from matplotlib import colors
-    cmap = colors.ListedColormap(list('kbgrcmy'))
-    plt.imshow((labeled % 7) + (labeled != 0), cmap= cmap, interpolation = 'none')
-    #plt.imshow(labeled, cmap = 'jet')
+        imshow_labeled(labeled)
 
-    plt.subplot(a, b, 5)
-    plt.title('final feature masks (overlayed)')
-    if logscale_heatmap:
-        plt.imshow(np.log(1 + patterns), cmap = 'jet', interpolation = 'none')
-    else:
-        plt.imshow(patterns, cmap = 'jet', interpolation = 'none')
+        plt.subplot(a, b, 5)
+        plt.title('final feature masks (overlayed)')
+        if logscale_heatmap:
+            plt.imshow(np.log(1 + patterns), cmap = 'jet', interpolation = 'none')
+        else:
+            plt.imshow(patterns, cmap = 'jet', interpolation = 'none')
 
-    plt.imshow(np.sign(labeled), cmap='Greys', alpha = .5)
+        plt.imshow(np.sign(labeled), cmap='Greys', alpha = .5)
+
     feature_masks = np.array([labeled == i for i in range(1, labeled.max() + 1)])
     print(len(feature_masks))
 

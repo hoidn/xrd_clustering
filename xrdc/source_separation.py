@@ -460,11 +460,21 @@ def CTinterpolation(imarray, smoothing = 0):
     return combined
 
 # This function is the main entry point
-def separate_signal(patterns, cutoff = .2, mode = 'gaussian', **kwargs):
+def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
+        background_after_filter = True, **kwargs):
     """
-    Decompose a dataset into high- and low-frequency components in  the
-    non-q dimensions.
-    Any rows that sum to zero are neglected.
+    Decompose a dataset into high- and low-frequency components in the
+    non-q dimensions. Any rows that sum to zero are neglected.
+
+    If background_after_filter, the background is estimated without
+    first removing high-frequency components.
+
+    The most important keyword arguments are:
+        -cutoff: frequency cutoff for noise extraction
+        -threshold: percentage of pixels to use in the background
+        interpolation. A lower value excludes more points in and
+        surrounding peak regios and therefore gives a more conservative
+        estimate of the background.
 
     Returns tuple:
         (interpolated background (excluding high-frequency non-q component),
@@ -479,13 +489,12 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian', **kwargs):
     wafer_mask = (patterns.sum(axis = (len(patterns.shape) - 1)) != 0)
     for i in range(nq):
         low_xy[..., i] = np.real(lowpassNd(fill(patterns[..., i], patterns[..., i] == 0), cutoff, mode)) * wafer_mask
-        #low_xy[..., i] = np.absolute(lowpassNd(fill(patterns[..., i], patterns[..., i] == 0), cutoff, mode)) * wafer_mask
     high_xy = patterns - low_xy
 
 #    # TODO take cutoff parameter for q filtering as well
-#    interpolated_background = get_background(patterns, **kwargs)
-#    fast_q = patterns - interpolated_background
-
-    interpolated_background = get_background(low_xy, **kwargs)
+    if background_after_filter:
+        interpolated_background = get_background(low_xy, **kwargs)
+    else:
+        interpolated_background = get_background(patterns, **kwargs)
     fast_q = low_xy - interpolated_background
     return interpolated_background, fast_q, low_xy, high_xy

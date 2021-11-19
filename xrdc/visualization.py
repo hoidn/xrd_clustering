@@ -1,3 +1,9 @@
+from ipywidgets import interactive
+import nibabel as nib
+import k3d
+import math
+import numpy as np
+from k3d.helpers import download
 from torch.utils.data import TensorDataset, DataLoader
 import torch
 from . import utils
@@ -32,3 +38,35 @@ def xrd_to_pca_original(net,  loader, embedding_cb):
     x, y = embedding_cb(net, loader)
     pca, pca_faces = do_pca(x)
     return pca, pca_faces
+
+def heatmap3d(patterns, interpolation = True):
+    """
+    Plot a 3-dimensional heatmap.
+    """
+    img = patterns
+    dx, dy, dz = 1, 1, 1#nii_source.header.get_zooms()
+    img = img.astype(np.float32) / img.max()#np.swapaxes(img,0,2).astype(np.float32)
+
+    img = np.log(1 + 10 * img)
+    nz, ny, nx = img.shape
+
+    volume = k3d.volume(img, interpolation = interpolation, bounds = np.array([0, 1, 0, .25, 0, .25]), color_range=[0.2,.9],
+                        color_map=np.array(k3d.basic_color_maps.Jet, dtype=np.float32))
+
+    plot = k3d.plot()
+    plot += volume
+    plot.display()
+    return plot, volume
+
+
+def iplot_volume(patterns, log = False, offset = 0, height = '550px'):
+    """
+    Plot a 3D heatmap with adjustable truncating plane.
+    """
+    plot, volume = heatmap3d(patterns)
+    def f(i):
+        volume.samples = 512 * 2
+        plot.clipping_planes = [[-1, 0, 0, 1 - i]]
+
+    interactive_plot = interactive(f, i=(0, 1, .005))
+    return interactive_plot
