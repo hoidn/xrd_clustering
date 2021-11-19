@@ -473,7 +473,7 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
         -cutoff: frequency cutoff for noise extraction
         -threshold: percentage of pixels to use in the background
         interpolation. A lower value excludes more points in and
-        surrounding peak regios and therefore gives a more conservative
+        surrounding peak regions and therefore gives a more conservative
         estimate of the background.
 
     Returns tuple:
