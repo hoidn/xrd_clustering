@@ -75,6 +75,7 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     yList = []
     noiseList = []
     paramsList = []
+    curve_paramsList = []
     bnds = expInfo['blockBounds']
     for leftBnd in range(len(bnds) - 1): # indexes
         selector = np.where((subx >= bnds[leftBnd]) & (subx < bnds[leftBnd + 1]))
@@ -99,7 +100,8 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
         hitp.save_curve_fit(xbit, ybit, curveParams, cfg['exportPath'], 
                         template + f'_block{i}', peakShape=fitInfo['peakShape'])
         paramsList.append(derivedParams)
-    return suby, paramsList
+        curve_paramsList.append(curveParams)
+    return suby, paramsList, noiseList, xList, yList, curve_paramsList
 
 
 def fit_curves(y, **kwargs):
@@ -109,10 +111,9 @@ def fit_curves(y, **kwargs):
         #boundaries = [b for b in boundaries if b >= boundaries_min and b <= boundaries_max]
         print(boundaries)
         cfg['fitInfo']['blockBounds'] = boundaries
-        suby, derivedParams = workflow(y, boundaries, **kwargs)
-        return suby, derivedParams
+        suby, derivedParams, noiseList, xList, yList, curve_prams = workflow(y, boundaries, **kwargs)
+        return suby, derivedParams, noiseList, xList, yList, curve_prams
     return np.zeros_like(y), None
-
 
 def curvefit_2d(patterns, background = None, noise_estimate = None, **kwargs):
     """
@@ -130,12 +131,20 @@ def curvefit_2d(patterns, background = None, noise_estimate = None, **kwargs):
     
     arrays = np.zeros(patterns.shape)
     params = np.empty(patterns.shape[:-1], object)
+    curveparams = np.empty(patterns.shape[:-1], object)
+    noiselists = np.empty(patterns.shape[:-1], object)
+    xLists = np.empty(patterns.shape[:-1], object)
+    yLists = np.empty(patterns.shape[:-1], object)
     
     for indices in np.ndindex(patterns.shape[:-1]):
-        suby, derivedParams = fit_curves(patterns[indices], background = background[indices],
-                        noise_estimate = noise_estimate[indices],
-                        **kwargs)
+        suby, derivedParams, noiseList, xList, yList, cparams =\
+            fit_curves(patterns[indices], background = background[indices],
+                        noise_estimate = noise_estimate[indices], **kwargs)
         arrays[indices] = suby
         params[indices] = derivedParams
-    
-    return arrays, params
+        curveparams[indices] = cparams
+        noiselists[indices] = noiseList
+        xLists[indices] = xList
+        yLists[indices] = yList
+        
+    return arrays, params, noiselists, xLists, yLists, curveparams

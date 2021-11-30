@@ -74,11 +74,13 @@ def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 20, area_min = 1000,
     for peaks in fit_list:
         primary = peaks['curve 0']
         if peakwidth == 'auto':
-            peakwidth = int((primary['FWHM'] + 1) / 4)
+            peakwidth_n = int((primary['FWHM'] + 1) / 4)
+        else:
+            peakwidth_n = peakwidth
         #qwhm = 1
         i0 = int(primary['x0'] + .5)
         if i0 >= imin and primary['FWHM'] <= fwhm_max:# and primary['area'] > area_min:
-            res[i0 - peakwidth: i0 + peakwidth] = 1
+            res[i0 - peakwidth_n: i0 + peakwidth_n] = 1
     return res
 
 def color_peaks_2d(fitlists, patterns, **kwargs):
@@ -310,10 +312,10 @@ def refine_and_label(ridges, thicken = True, do_flood_thicken = False, size_thre
 #        labeled, ncomponents = label(labeled, structure) # merge overlapping features
     return ridges, labeled
 
-def imshow_labeled(labeled):
+def imshow_labeled(labeled, **kwargs):
     from matplotlib import colors
     cmap = colors.ListedColormap(list('kbgrcmy'))
-    plt.imshow((labeled % 7) + (labeled != 0), cmap= cmap, interpolation = 'none')
+    plt.imshow((labeled % 7) + (labeled != 0), cmap= cmap, interpolation = 'none', **kwargs)
     #plt.imshow(labeled, cmap = 'jet')
 
 def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size_thresh = 2,
