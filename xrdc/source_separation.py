@@ -247,6 +247,8 @@ def get_bgmask(patterns, threshold, **kwargs):
     """
     Find peak regions and return a mask that identifies them.
     Peak pixels map to False and background pixels map to True.
+
+    This function returns a boolean array
     """
     bgsubbed = reference_bgsub(patterns, **kwargs)
     percentiles = np.percentile(bgsubbed, threshold, axis = len(patterns.shape) - 1)
@@ -258,6 +260,9 @@ def get_bgmask(patterns, threshold, **kwargs):
 
 def get_background_nan(patterns, threshold = 50, smooth_q = 1.7,
         smooth_q_background = 10, smooth_neighbor_background = 1, q_cutoff = .001):
+    """
+    Mask peak entries in patterns to np.nan and optionally do some Gaussian smoothing.
+    """
     # TODO smooth or not?
     smooth = mk_smooth(patterns, smooth_neighbor_background, smooth_q_background)
     print(smooth)
@@ -274,9 +279,10 @@ def get_background(patterns, threshold = 50, bg_fill_method = 'simple', smooth_q
             smooth_neighbor_background = smooth_neighbor_background, q_cutoff = q_cutoff)
         if bg_fill_method == 'none':
             from .utils.utils import utils
-            mask = get_bgmask(patterns, threshold)
-            filled_data = interprows(patterns, mask, utils.extrap1d)
-                #fill_value = 'extrapolate')
+            mask = get_bgmask(patterns, threshold, smooth_q_background = smooth_q_background,
+            smooth_neighbor_background = smooth_neighbor_background, q_cutoff = q_cutoff)
+            filled_data = gf(interprows(patterns, mask, fn = None),
+                mk_smooth(patterns, smooth_neighbor_background, smooth_q_background))
         elif bg_fill_method == 'simple':
             # TODO am i getting the higher-dimensional nearest neighbor?
             mask = np.where(~np.isnan(smooth_bg))
@@ -434,15 +440,16 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
     first removing high-frequency components.
 
     The most important keyword arguments are:
-        -cutoff: frequency cutoff for noise extraction
+        -cutoff: frequency cutoff for noise extraction in non-q dimensions.
         -threshold: percentage of pixels to use in the background
             interpolation. A lower value excludes more points in and
             surrounding peak regions and therefore gives a more conservative
             estimate of the background.
         -background_after_filter: **IMPORTANT** this can be set to True
             in the case of truly continuous datasets, but otherwise it
-            must be False. Else noise removal will corrupt the background
-            estimate.
+            must be False. Else noise removal will corrupt both the
+            background estimate and the background-subtracted signal
+            (fast_q).
         -smooth_q_background: smoothing parameter for the interpolated
             background
 
@@ -465,8 +472,9 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
     if background_after_filter:
         interpolated_background = get_background(low_xy, q_cutoff = q_cutoff,
             **kwargs)
+        fast_q = low_xy - interpolated_background
     else:
         interpolated_background = get_background(patterns, q_cutoff = q_cutoff,
             **kwargs)
-    fast_q = low_xy - interpolated_background
+        fast_q = patterns - interpolated_background
     return interpolated_background, fast_q, low_xy, high_xy
