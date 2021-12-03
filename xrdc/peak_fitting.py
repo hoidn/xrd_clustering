@@ -36,11 +36,12 @@ with open(configPath) as jp:
 #cfg['fitInfo']['blockBounds'] = boundaries
 
 
-def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, background = None,
+def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, background = None, bg_shift_pos = True,
              **kwargs):
     """
     kwargs are passed to hitp.fit_peak
     """
+    print(bg_shift_pos)
 
     # Fill out experimental information
     expInfo = {}
@@ -67,8 +68,11 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     else:
         suby = y - background
         if suby.min() < 0:
-            print('negative values in background-subtracted pattern. taking absolute value.')
-            suby = suby - suby.min()
+            if bg_shift_pos:
+                print('negative values in background-subtracted pattern. taking absolute value.')
+                suby = suby - suby.min()
+            else:
+                suby = suby - (suby * (suby < 0))
 
     # segment rangeinto two...
     xList = []
