@@ -271,8 +271,16 @@ def get_background_nan(patterns, threshold = 50, smooth_q = 1.7,
     smooth_bg = gf(filled_bg, smooth)
     return smooth_bg
 
-def get_background(patterns, threshold = 50, bg_fill_method = 'simple', smooth_q = 1.7, smooth_neighbor_background = 1, q_cutoff = .001, smooth_q_background = 10):
+def get_background(patterns, threshold = 50, bg_fill_method = 'simple', smooth_q = 1.7, smooth_neighbor_background = 1, q_cutoff = .001, smooth_q_background = 10,
+        smooth_before = True, smooth_after = True):
     smooth = mk_smooth(patterns, smooth_neighbor_background, smooth_q)
+    """
+    If smooth_before, smooth background values before interpolation.
+    If smooth_after, smooth background estimate post-interpolation.
+
+    Background smoothing is applied *before* interpolation but not
+    after. The returned background array is not smoothed.
+    """
     if bg_fill_method in ['none', 'simple']:
         smooth_bg = get_background_nan(patterns, threshold = threshold,
             smooth_q_background = smooth_q_background,
@@ -293,6 +301,10 @@ def get_background(patterns, threshold = 50, bg_fill_method = 'simple', smooth_q
         filled_data = CTinterpolation(mask * patterns)
     else:
         raise ValueError
+    if smooth_before is False:
+        raise NotImplementedError
+    if smooth_after:
+        filled_data = gf(filled_data, mk_smooth(filled_data, smooth_neighbor_background, smooth_q_background))
     return filled_data
 
 def draw_circle(arr,diamiter):
