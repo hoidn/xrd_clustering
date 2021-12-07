@@ -199,6 +199,36 @@ def apply_bottom(func, arr, axis = None, **kwargs):
         axis = len(arr.shape) - 1
     return np.apply_along_axis(new_f, axis, arr)
 
+def ffill(arr):
+    """
+    forward-fill nans in a 1d np array
+    """
+    mask = np.isnan(arr)
+    idx = np.where(~mask,np.arange(mask.shape[0]),0)
+    np.maximum.accumulate(idx,axis=0, out=idx)
+    out = arr[idx]#[np.arange(idx.shape[0])[:,None], idx]
+    return out
+
+def bfill(arr):
+    """
+    backwards-fill nans in a 1d np array
+    """
+    return ffill(arr[::-1])[::-1]
+
+def fill(arr):
+    """
+    fill consecutive nans at the edge of a 1d np array with the nearest
+    non-nan value.
+    """
+    return ffill(bfill(arr))
+
+def fill_nd(arr):
+    """
+    fill consecutive nans at the edge of a np array with the nearest
+    non-nan value.
+    """
+    return apply_bottom(fill, arr)
+
 def mk_smooth(patterns, smooth_neighbor, smooth_q):
     n = len(patterns.shape)
     return (smooth_neighbor,) * (n - 1) + (smooth_q,)
@@ -271,8 +301,9 @@ def get_background_nan(patterns, threshold = 50, smooth_q = 1.7,
     smooth_bg = gf(filled_bg, smooth)
     return smooth_bg
 
-def get_background(patterns, threshold = 50, bg_fill_method = 'simple', smooth_q = 1.7, smooth_neighbor_background = 1, q_cutoff = .001, smooth_q_background = 10,
-        smooth_before = True, smooth_after = True):
+def get_background(patterns, threshold = 50, bg_fill_method = 'simple',
+        smooth_q = 1.7, smooth_neighbor_background = 1, q_cutoff = .001,
+        smooth_q_background = 10, smooth_before = True, smooth_after = True):
     smooth = mk_smooth(patterns, smooth_neighbor_background, smooth_q)
     """
     If smooth_before, smooth background values before interpolation.
@@ -281,7 +312,7 @@ def get_background(patterns, threshold = 50, bg_fill_method = 'simple', smooth_q
     Background smoothing is applied *before* interpolation but not
     after. The returned background array is not smoothed.
     """
-    if bg_fill_method in ['none', 'simple']:
+    if bg_fill_method in ['none', 'simple', 'extrap_1d']:
 #        smooth_bg = get_background_nan(patterns, threshold = threshold,
 #            smooth_q_background = smooth_q_background,
 #            smooth_neighbor_background = smooth_neighbor_background, q_cutoff = q_cutoff)
@@ -289,11 +320,12 @@ def get_background(patterns, threshold = 50, bg_fill_method = 'simple', smooth_q
             smooth_q_background = 0,
             smooth_neighbor_background = 0, q_cutoff = q_cutoff)
         if bg_fill_method == 'none':
-            from .utils.utils import utils
+            #from .utils.utils import utils
 #            mask = get_bgmask(patterns, threshold, smooth_q_background = smooth_q_background,
 #            smooth_neighbor_background = smooth_neighbor_background, q_cutoff = q_cutoff)
             mask = get_bgmask(patterns, threshold, smooth_q_background = 0,
                 smooth_neighbor_background = 0, q_cutoff = q_cutoff)
+            filled_data = smooth_bg
 #            filled_data = gf(interprows(patterns, mask, fn = None),
 #                mk_smooth(patterns, smooth_neighbor_background, smooth_q_background))
         elif bg_fill_method == 'simple':
@@ -301,6 +333,10 @@ def get_background(patterns, threshold = 50, bg_fill_method = 'simple', smooth_q
             mask = np.where(~np.isnan(smooth_bg))
             interp = NearestNDInterpolator(np.transpose(mask), smooth_bg[mask])
             filled_data = interp(*np.indices(smooth_bg.shape))
+        elif bg_fill_method == 'extrap_1d':
+            filled_data = fill_nd(smooth_bg) 
+        else:
+            raise ValueError
     elif bg_fill_method == 'cloughtocher':
         mask = get_bgmask(patterns, threshold)
         filled_data = CTinterpolation(mask * patterns)
@@ -467,8 +503,29 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
             must be False. Else noise removal will corrupt both the
             background estimate and the background-subtracted signal
             (fast_q).
-        -smooth_q_background: smoothing parameter for the interpolated
-            background
+        -smooth_q_background: gaussian smoothing standard deviation for
+            the interpolated background.
+        -smooth_q: gaussian smoothing standard deviation for peak
+            extraction (should be of order peak FWHM / 2).
+        -smooth_neighbor_background: gaussian smoothing standard
+            deviation for non-q dimensions of the background estimate.
+            Can be of order unity for connected datasets but should
+            be set to 0 if the background is discontinuous accross
+            neighboring patterns.
+
+    Other arguments:
+        -mode: == 'gaussian' or 'step'; kernel to use for the non-q
+            frequency filtering.
+        -q_cutoff: frequency cutoff for q peak filtering (deprecated;
+            should be a value close to 0 since peak extraction uses a
+            Blackman window by default, which is sufficient on its own)
+        -bg_fill_method. fill method for background values outside of
+            interpolation range; should equal one of the following:
+                'simple': nearest neighbor matching
+                'none': np.nan values outside the interpolation range
+                'extrap_1d': 1d extrapolation using the nearest non-nan
+                    value
+                'cloughtocher': cubic 2d interpolation
 
     Returns tuple:
         (interpolated background (excluding high-frequency non-q component),

@@ -141,9 +141,13 @@ def curvefit_2d(patterns, background = None, noise_estimate = None, **kwargs):
     yLists = np.empty(patterns.shape[:-1], object)
     
     for indices in np.ndindex(patterns.shape[:-1]):
+        if background is not None:
+            background = background[indices]
+        if noise_estimate is not None:
+            noise_estimate = noise_estimate[indices]
         suby, derivedParams, noiseList, xList, yList, cparams =\
-            fit_curves(patterns[indices], background = background[indices],
-                        noise_estimate = noise_estimate[indices], **kwargs)
+            fit_curves(patterns[indices], background = background,
+                        noise_estimate = noise_estimate, **kwargs)
         arrays[indices] = suby
         params[indices] = derivedParams
         curveparams[indices] = cparams
