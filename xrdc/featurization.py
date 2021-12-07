@@ -327,11 +327,12 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
 
     packed_pp = preprocess(patterns, bg_smooth, bgsub = bgsub, threshold_percentile = threshold_percentile,
         smooth_ax1 = smooth_ax1, smooth_ax0 = smooth_ax0, fwhm_finder = fwhm_finder, smooth_factor_ax1 = smooth_factor_ax1)
-    if thicken_ax1 == 'FWHM':
-        thicken_ax1 = int(fwhm / 4) # TODO parameterize?
-        smoothed, fwhm = packed_pp
-    else:
-        smoothed = packed_pp
+
+#    if thicken_ax1 == 'FWHM':
+#        thicken_ax1 = int(fwhm / 4) # TODO parameterize?
+    smoothed, fwhm = packed_pp
+#    else:
+#        smoothed = packed_pp
 
     arr = get_ridges(smoothed, **kwargs)
     arr, labeled = refine_and_label(arr, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
