@@ -504,7 +504,8 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
             background estimate and the background-subtracted signal
             (fast_q).
         -smooth_q_background: gaussian smoothing standard deviation for
-            the interpolated background.
+            the interpolated background. Should be smaller than the
+            scale of background variations.
         -smooth_q: gaussian smoothing standard deviation for peak
             extraction (should be of order peak FWHM / 2).
         -smooth_neighbor_background: gaussian smoothing standard
@@ -552,3 +553,5 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
             **kwargs)
         fast_q = patterns - interpolated_background
     return interpolated_background, fast_q, low_xy, high_xy
+
+
