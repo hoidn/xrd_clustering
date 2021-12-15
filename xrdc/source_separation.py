@@ -313,21 +313,13 @@ def get_background(patterns, threshold = 50, bg_fill_method = 'simple',
     after. The returned background array is not smoothed.
     """
     if bg_fill_method in ['none', 'simple', 'extrap_1d']:
-#        smooth_bg = get_background_nan(patterns, threshold = threshold,
-#            smooth_q_background = smooth_q_background,
-#            smooth_neighbor_background = smooth_neighbor_background, q_cutoff = q_cutoff)
         smooth_bg = get_background_nan(patterns, threshold = threshold,
             smooth_q_background = 0,
             smooth_neighbor_background = 0, q_cutoff = q_cutoff)
         if bg_fill_method == 'none':
-            #from .utils.utils import utils
-#            mask = get_bgmask(patterns, threshold, smooth_q_background = smooth_q_background,
-#            smooth_neighbor_background = smooth_neighbor_background, q_cutoff = q_cutoff)
             mask = get_bgmask(patterns, threshold, smooth_q_background = 0,
                 smooth_neighbor_background = 0, q_cutoff = q_cutoff)
             filled_data = smooth_bg
-#            filled_data = gf(interprows(patterns, mask, fn = None),
-#                mk_smooth(patterns, smooth_neighbor_background, smooth_q_background))
         elif bg_fill_method == 'simple':
             # TODO am i getting the higher-dimensional nearest neighbor?
             mask = np.where(~np.isnan(smooth_bg))
@@ -553,5 +545,3 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
             **kwargs)
         fast_q = patterns - interpolated_background
     return interpolated_background, fast_q, low_xy, high_xy
-
-

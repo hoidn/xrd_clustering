@@ -119,6 +119,7 @@ def fit_curves(y, **kwargs):
         return suby, derivedParams, noiseList, xList, yList, curve_prams
     return np.zeros_like(y), None
 
+import pdb
 def curvefit_2d(patterns, background = None, noise_estimate = None, **kwargs):
     """
     Run BBA and peak-fitting routine for each XRD pattern in a
@@ -142,12 +143,15 @@ def curvefit_2d(patterns, background = None, noise_estimate = None, **kwargs):
     
     for indices in np.ndindex(patterns.shape[:-1]):
         if background is not None:
-            background = background[indices]
+            background_selected = background[indices]
+        else:
+            background_selected = None
         if noise_estimate is not None:
-            noise_estimate = noise_estimate[indices]
+#            pdb.set_trace()
+            noise_estimate_selected = noise_estimate[indices]
         suby, derivedParams, noiseList, xList, yList, cparams =\
-            fit_curves(patterns[indices], background = background,
-                        noise_estimate = noise_estimate, **kwargs)
+            fit_curves(patterns[indices], background = background_selected,
+                        noise_estimate = noise_estimate_selected, **kwargs)
         arrays[indices] = suby
         params[indices] = derivedParams
         curveparams[indices] = cparams
