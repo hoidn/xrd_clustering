@@ -606,6 +606,21 @@ def fwhm_finder(patterns, peakShape = 'Voigt', numCurves = 1):
         return np.mean([v['FWHM'] for v in curves.values()])
     return np.median([get_fwhm(curves) for curves in all_curves])
 
+def peakfit_featurize(patterns_pp, fitlists, size_thresh = 5):
+    """
+    Given patterns and a list of peak fit parameters, return peak
+    shift-corrected features.
+
+    patterns_pp should preferably be background-subtracted.
+    """
+    labeled, feature_masks, activations, norm_, activations_n1 = get_ridge_features(
+        patterns_pp,
+       smooth_ax1 = 'FWHM', smooth_ax0 = 2, threshold_percentile = 50, thicken = True, size_thresh = size_thresh, bgsub=False,
+        log_scale_features = False, fwhm_finder=fwhm_finder, do_flood_thicken = False, max_size_flood = 20,
+        thicken_ax0 = 0.5, thicken_ax1 = 0, flood_threshold=.95, smooth_factor_ax1 = .125, fitlists = fitlists,
+    peakwidth = 2)
+    return labeled, feature_masks, activations, norm_, activations_n1
+
 simtype, scaling = 'Cosine', 'linear'
 from IPython.display import Markdown as md
 def printinfo(simtype, scaling, linkage_type, clustering_type):
@@ -618,3 +633,32 @@ def printinfo(simtype, scaling, linkage_type, clustering_type):
     
     Linkage: {}
     """.format(simtype, scaling, clustering_type, linkage_type))
+
+def get_features_range(labeled, i):
+    """
+    Return (min vertical index, max vertical index, horizontal index at
+    max vertical position)
+    """
+    indices = np.indices(labeled.shape)#.T[:,:,[1, 0]]
+    if len(labeled.shape) == 2:
+        vi, hi = indices[:, labeled == i]
+        return (vi.min(), vi.max(), np.floor(hi[(vi == vi.max())].mean()))
+    
+def get_peakshift_corrected_heatmap(patterns, activations, labeled):    
+    """
+    Given XRD array, corresponding feature label map, and an array of
+    feature intensities for each pattern/feature pair, return a heatmap
+    of 'straightened" features. To be used for visualization purposes,
+    basically.
+    """
+    straight_feature_map = np.zeros_like(patterns)
+    thickness = 2
+    for i in range(1, labeled.max() + 1):
+        vmin, vmax, hcenter = get_features_range(labeled, i)
+        hstart, hend = int(hcenter - thickness / 2), int(hcenter + thickness / 2)
+        vi, hi = np.indices(labeled.shape)
+        fillmask = ((hi >= hstart) & (hi <= hend)) & ((vi <= vmax) & (vi >= vmin))
+        vi_fill, hi_fill = vi[fillmask], hi[fillmask]
+        for vidx, hidx in zip(vi_fill, hi_fill):
+            straight_feature_map[vidx, hidx] = activations[i - 1][vidx]
+    return straight_feature_map

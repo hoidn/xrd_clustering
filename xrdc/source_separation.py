@@ -514,7 +514,7 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
             Blackman window by default, which is sufficient on its own)
         -bg_fill_method. fill method for background values outside of
             interpolation range; should equal one of the following:
-                'simple': nearest neighbor matching
+                'simple': nearest neighbor matching across non-q dimensions
                 'none': np.nan values outside the interpolation range
                 'extrap_1d': 1d extrapolation using the nearest non-nan
                     value
