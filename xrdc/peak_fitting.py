@@ -22,11 +22,14 @@ from dataproc.operations import hitp
 from dataproc.operations.utils import single_select, folder_select
 
 from xrdc import source_separation as sep
+from .utils.utils import utils
 
 plt.rcParams["figure.figsize"]=(10, 8)
 
+# TODO proper path management
 template = ''
-configPath = "workflows/alanConfig"
+#configPath = "dataproc-1/dataproc/workflows/alanConfig"
+configPath = utils.resource_path( "dataproc-1/dataproc/workflows/alanConfig")
 
 # Configuration setup
 # Grab configs

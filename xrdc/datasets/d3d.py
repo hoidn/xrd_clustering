@@ -8,6 +8,9 @@ from .. import simulation as sim
 from .. import simulation
 from .. import datasets as xd
 
+from ..waferutils.Clustering.data_grid import DataGrid
+#from data_grid import DataGrid
+
 """
 This module loads a compositional scan dataset and reshapes it into a 3d array with dimensions [wafer x, wafer y, q]
 
@@ -82,7 +85,6 @@ nclust = 11# i = 2
 path = '/Users/ollie/Documents/SLAC/xrd_clustering/notebooks/../../TiNiSn_500C-20190604T152446Z-001/TiNiSn_500C/'
 #path = "../../TiNiSn_500C-20190604T152446Z-001/TiNiSn_500C/"
 
-from data_grid import DataGrid
 
 dgrid = DataGrid(path, """TiNiSn_500C_Y20190218_14x14_t60_(?P<num>.*?)_bkgdSub_1D.csv""",range=None)
 

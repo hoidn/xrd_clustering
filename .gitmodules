@@ -16,3 +16,9 @@
 [submodule "notebooks/robust-pca"]
 	path = notebooks/robust-pca
 	url = https://github.com/dganguli/robust-pca.git
+[submodule "xrdc/SLAC2020_SSRL-Internship"]
+	path = xrdc/waferutils
+	url = https://github.com/aoluwade/SLAC2020_SSRL-Internship.git
+[submodule "xrdc/dataproc-1"]
+	path = xrdc/dataproc-1
+	url = git@github.com:hoidn/dataproc-1.git

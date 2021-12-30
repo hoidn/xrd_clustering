@@ -10,7 +10,7 @@ setup(name='xrdc',
     version='1.0',
     packages = find_packages('.'),
     package_dir={'xrdc': 'xrdc'},
-    package_data={'xrdc': ['inputs/*']},
+    package_data={'xrdc': ['inputs/*', 'dataproc-1/dataproc/workflows/*']},
 #    scripts = [
 #        'scripts/mecana.py', 'scripts/logbooksync.py'
 #    ],
