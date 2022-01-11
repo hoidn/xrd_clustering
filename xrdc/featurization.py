@@ -640,19 +640,20 @@ def fwhm_finder(patterns, peakShape = 'Voigt', numCurves = 1):
         return np.mean([v['FWHM'] for v in curves.values()])
     return np.median([get_fwhm(curves) for curves in all_curves])
 
-def peakfit_featurize(patterns_pp, fitlists, size_thresh = 5):
+def peakfit_featurize(patterns_pp, fitlists, size_thresh = 5, **kwargs):
     """
     Given patterns and a list of peak fit parameters, return peak
     shift-corrected features.
 
     patterns_pp should preferably be background-subtracted.
     """
+    # TODO move these parameters to the function declaration
     labeled, feature_masks, activations, norm_, activations_n1 = get_ridge_features(
         patterns_pp,
        smooth_ax1 = 'FWHM', smooth_ax0 = 2, threshold_percentile = 50, thicken = True, size_thresh = size_thresh, bgsub=False,
         log_scale_features = False, fwhm_finder=fwhm_finder, do_flood_thicken = False, max_size_flood = 20,
         thicken_ax0 = 1, thicken_ax1 = 0, flood_threshold=.95, smooth_factor_ax1 = .125, fitlists = fitlists,
-    peakwidth = 2)
+    peakwidth = 2, **kwargs)
     return labeled, feature_masks, activations, norm_, activations_n1
 
 simtype, scaling = 'Cosine', 'linear'

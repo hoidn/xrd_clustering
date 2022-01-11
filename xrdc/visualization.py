@@ -7,6 +7,9 @@ from k3d.helpers import download
 from torch.utils.data import TensorDataset, DataLoader
 import torch
 from . import utils
+import matplotlib.pyplot as plt
+
+from .datasets import d3d
 
 def do_pca(X):
     from sklearn.decomposition import PCA
@@ -77,3 +80,39 @@ def iplot_volume(patterns, log = False, offset = 0, height = '550px'):
 
     interactive_plot = interactive(f, i=(0, 1, .005))
     return interactive_plot
+
+def overlay_mask(img, mask, ax = None, **kwargs):
+    grayscale = 1 - mask
+    alpha = mask
+    rgb_img = np.dstack((grayscale, (grayscale), grayscale, (alpha)))
+    if ax is not None:
+        ax.imshow(np.log(1 + img), cmap = 'jet', **kwargs)
+        ax.imshow(rgb_img, cmap = 'Greys', **kwargs)
+    else:
+        plt.imshow(np.log(1 + img), cmap = 'jet', **kwargs)
+        plt.imshow(rgb_img, cmap = 'Greys', **kwargs)
+
+#imargs = {'cmap': 'jet', 'aspect': 8}
+
+def heatmap(fig, arr, label = '', aspect = None, **kwargs):
+    ax = fig
+
+    stride = 100
+    qticks = d3d.q[::stride]
+    labels = ['{:0.1f}'.format(elt) for elt in qticks]
+    
+    ax.set_xticklabels(labels);
+    ax.set_xticks(np.arange(len(qticks)) * stride);
+    if kwargs is not None:
+        (kwargs.update(imargs))
+    else:
+        kwargs = imargs
+    if aspect:
+        kwargs['aspect']  = aspect
+    plt.imshow(arr, **kwargs)
+    plt.title(label)
+    annotate()
+
+def annotate():
+    plt.xlabel('$q~(1 / A)$')
+    plt.ylabel('sample index')
