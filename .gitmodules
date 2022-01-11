@@ -20,5 +20,5 @@
 	path = xrdc/waferutils
 	url = https://github.com/aoluwade/SLAC2020_SSRL-Internship.git
 [submodule "xrdc/dataproc-1"]
-	path = xrdc/dataproc-1
+	path = xrdc/dataproc/
 	url = git@github.com:hoidn/dataproc-1.git
