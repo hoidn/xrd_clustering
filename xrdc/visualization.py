@@ -39,19 +39,26 @@ def xrd_to_pca_original(net,  loader, embedding_cb):
     pca, pca_faces = do_pca(x)
     return pca, pca_faces
 
-def heatmap3d(patterns, interpolation = True):
+def heatmap3d(patterns, interpolation = True, color_range = [0.2,.9], scale = True, auto_color = True, **kwargs):
     """
     Plot a 3-dimensional heatmap.
     """
     img = patterns
     dx, dy, dz = 1, 1, 1#nii_source.header.get_zooms()
-    img = img.astype(np.float32) / img.max()#np.swapaxes(img,0,2).astype(np.float32)
 
-    img = np.log(1 + 10 * img)
+    if scale:
+        img = img.astype(np.float32) / img.max()#np.swapaxes(img,0,2).astype(np.float32)
+        img = np.log(1 + 10 * img)
+
     nz, ny, nx = img.shape
 
-    volume = k3d.volume(img, interpolation = interpolation, bounds = np.array([0, 1, 0, .25, 0, .25]), color_range=[0.2,.9],
-                        color_map=np.array(k3d.basic_color_maps.Jet, dtype=np.float32))
+    if auto_color:
+        volume = k3d.volume(img, interpolation = interpolation, bounds = np.array([0, 1, 0, .25, 0, .25]),
+            color_range=color_range, color_map=np.array(k3d.basic_color_maps.Jet, dtype=np.float32), **kwargs)
+    else:
+        volume = k3d.volume(img, interpolation = interpolation, bounds = np.array([0, 1, 0, .25, 0, .25]),
+            color_range=color_range, **kwargs)
+
 
     plot = k3d.plot()
     plot += volume

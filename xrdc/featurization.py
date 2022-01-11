@@ -59,7 +59,7 @@ def distortion_curve(X, Kmax = 15, **kwargs):
         D[i] = d#**(-Y)
     return grid, D[1:]
 
-def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 20, area_min = 1000,
+def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 80, area_min = 0,
         peakwidth = 'auto'):
     """
     Return an array of 1s in indices corresponding to a peak (+- HWHM) and 0s elsewhere. 
@@ -174,7 +174,27 @@ def norm(arr, axis = 0, log_scale = False):
             #stds *= np.log(means)
         #return ((arr - means[:, None]) / stds[:, None])
     raise Exception
+
+# same thing for 3d arrays, TODO merge
+def norm3d(arr, axis = 0, log_scale = False):
+    """
+    Log scale: scale the standard deviation along each feature dimension to the
+    mean value of that feature
     
+    For axis == 1, we scale features to mean and std, but only consider non-zero values.
+    """
+    xi, yi, zi = np.nonzero(arr)
+    xxi, yyi, zzi = lambda i: xi[xi == i], lambda i: yi[xi == i], lambda i: zi[xi == i]
+    arr = arr.copy()
+    global_min = arr[xi, yi, zi].min()
+    print(global_min)
+    for i in range(arr.shape[0]):
+        ai = arr[xxi(i), yyi(i), zzi(i)]
+        arr[xxi(i), yyi(i), zzi(i)] = (ai - ai.min()) / ai.std()
+        if log_scale:
+            arr[xxi(i), yyi(i)] *= (np.log(ai.mean() - global_min + 1))
+    return arr
+
 def oldnorm(arr, axis = 0, log_scale = False):
     """
     Log scale: scale the standard deviation along each feature dimension to the
@@ -247,10 +267,12 @@ def preprocess(patterns, bg_smooth = 80, smooth_ax1 = 'FWHM', smooth_ax0 = 2, bg
 
     smoothed = gf(p, smooth_shape)
     
+#    import pdb
+#    pdb.set_trace()
     try:
         return smoothed, fwhm
     except UnboundLocalError:
-        return smoothed
+        return smoothed, None
 
 import pdb
 def flood_thicken(labeled, arr, thresh = .95, max_hsize = 50):
@@ -617,7 +639,7 @@ def peakfit_featurize(patterns_pp, fitlists, size_thresh = 5):
         patterns_pp,
        smooth_ax1 = 'FWHM', smooth_ax0 = 2, threshold_percentile = 50, thicken = True, size_thresh = size_thresh, bgsub=False,
         log_scale_features = False, fwhm_finder=fwhm_finder, do_flood_thicken = False, max_size_flood = 20,
-        thicken_ax0 = 0.5, thicken_ax1 = 0, flood_threshold=.95, smooth_factor_ax1 = .125, fitlists = fitlists,
+        thicken_ax0 = 1, thicken_ax1 = 0, flood_threshold=.95, smooth_factor_ax1 = .125, fitlists = fitlists,
     peakwidth = 2)
     return labeled, feature_masks, activations, norm_, activations_n1
 
