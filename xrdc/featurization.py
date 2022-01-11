@@ -620,7 +620,7 @@ def sims_with_boundaries(patterns, clustering_mat, visualization_mat, n = 5, sim
         plt.grid()
     return feature_csims1, o_cuts
 
-from dataproc.operations import hitp
+from .dataproc.dataproc.operations import hitp
 def fwhm_finder(patterns, peakShape = 'Voigt', numCurves = 1):
     M = patterns.shape[1]
     all_curves = [hitp.fit_peak(np.arange(M), y, peakShape=peakShape, numCurves=numCurves)[1] for y in patterns[::10]]
