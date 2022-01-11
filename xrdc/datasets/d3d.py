@@ -2,6 +2,7 @@ from scipy.signal import argrelextrema
 from scipy.ndimage.filters import gaussian_filter as gf
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 from .. import xrdutils as xdu
 from .. import simulation as sim
@@ -9,6 +10,8 @@ from .. import simulation
 from .. import datasets as xd
 
 from ..waferutils.Clustering.data_grid import DataGrid
+
+from ..utils.utils import utils
 #from data_grid import DataGrid
 
 """
@@ -38,7 +41,6 @@ def norm3d(arr, axis = 0, log_scale = False):
         arr[xxi(i), yyi(i), zzi(i)] = (ai - ai.min()) / ai.std()
         if log_scale:
             arr[xxi(i), yyi(i)] *= (np.log(ai.mean() - global_min + 1))
-
     return arr
 
 swap3d = lambda arr: np.einsum("ijk->kij", arr)
@@ -82,11 +84,17 @@ debug = False
 nclust = 11# i = 2
 
 
-path = '/Users/ollie/Documents/SLAC/xrd_clustering/notebooks/../../TiNiSn_500C-20190604T152446Z-001/TiNiSn_500C/'
+path = os.path.dirname(
+    utils.resource_path("inputs/")
+    ) + '/'
+
+#path = '/Users/ollie/Documents/SLAC/xrd_clustering/notebooks/../../TiNiSn_500C-20190604T152446Z-001/TiNiSn_500C/'
 #path = "../../TiNiSn_500C-20190604T152446Z-001/TiNiSn_500C/"
 
 
+
 dgrid = DataGrid(path, """TiNiSn_500C_Y20190218_14x14_t60_(?P<num>.*?)_bkgdSub_1D.csv""",range=None)
+#dgrid = DataGrid(path, """TiNiSn_500C_Y20190218_14x14_t60_0003_bkgdSub_1D.csv""",range=None)
 
 q = dgrid.data[1][:,0]
 X = dgrid.get_data_array()

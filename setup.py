@@ -14,7 +14,8 @@ setup(name='xrdc',
 #    scripts = [
 #        'scripts/mecana.py', 'scripts/logbooksync.py'
 #    ],
-    install_requires = ['gpflow', 'bayesian-optimization', 'pathos'],
+    install_requires = ['gpflow', 'bayesian-optimization', 'pathos',
+            'pymatgen', 'k3d'],
     zip_safe = False,
     )
 
