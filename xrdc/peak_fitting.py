@@ -32,7 +32,7 @@ plt.rcParams["figure.figsize"]=(10, 8)
 # TODO proper path management
 template = ''
 #configPath = "dataproc-1/dataproc/workflows/alanConfig"
-configPath = utils.resource_path( "dataproc/dataproc/workflows/alanConfig")
+configPath = utils.resource_path( "dataproc/dataproc/workflows/basicConfig")
 
 # Configuration setup
 # Grab configs
@@ -106,13 +106,6 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
         else:
             noiseList.append(None)
 
-#    def _fitpeak_bind_kwargs(xbit, ybit, noisebit):
-#            curveParams, derivedParams = hitp.fit_peak(xbit, ybit,
-#                                peakShape=fitInfo['peakShape'],
-#                                fitMode=fitInfo['fitMode'],
-#                                numCurves=fitInfo['numCurves'],
-#                                noise_estimate = noisebit,
-#                                                 **kwargs)
     def _store_peakfit_outputs(outputs):
         for i, ((curveParams, derivedParams), xbit, ybit) in enumerate(zip(outputs, xList, yList)):
             print(f'    ----Saving data for block between {np.min(xbit):.2f} - {np.max(xbit):.2f}')
@@ -124,34 +117,9 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
             paramsList.append(derivedParams)
             curve_paramsList.append(curveParams)
 
-#    def _fit_peak(xbit, ybit, noisebit, fitInfo, **kwargs):
-#        # Restrict range and fit peaks
-#        curveParams, derivedParams = hitp.fit_peak(xbit, ybit,
-#                            peakShape=fitInfo['peakShape'],
-#                            fitMode=fitInfo['fitMode'],
-#                            numCurves=fitInfo['numCurves'],
-#                            noise_estimate = noisebit,
-#                                             **kwargs)
-#        return curveParams, derivedParams
 
     pool = Pool()
     fitoutputs = list(pool.map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
-
-#    fitoutputs = []
-#    for i, (xbit, ybit, noisebit) in enumerate(zip(xList, yList, noiseList)):
-#        curveParams, derivedParams = _fit_peak(xbit, ybit, noisebit)
-#
-#        fitoutputs.append((curveParams, derivedParams))
-##        print(f'    ----Saving data for block between {np.min(xbit):.2f} - {np.max(xbit):.2f}')
-##        # output/saving of blocks
-##        hitp.save_dict(curveParams, cfg['exportPath'], template + f'_block{i}_curve')
-##        hitp.save_dict(derivedParams, cfg['exportPath'], template + f'_block{i}_derived')
-##        hitp.save_curve_fit(xbit, ybit, curveParams, cfg['exportPath'], 
-##                        template + f'_block{i}', peakShape=fitInfo['peakShape'])
-##        paramsList.append(derivedParams)
-##        curve_paramsList.append(curveParams)
-##    print("writing peak fit outputs")
-
     _store_peakfit_outputs(fitoutputs)
     print("done")
     pool.clear()

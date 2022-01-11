@@ -64,9 +64,9 @@ def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 80, area_min = 0,
     """
     Return an array of 1s in indices corresponding to a peak (+- HWHM) and 0s elsewhere. 
     
-    fit_list: list of derived curve fit parameters.
+    fit_list: list of derived peak fit parameters.
     
-    Only the first curve in each group of fits is counted.
+    Only the first curve in each group of fits is considered.
     """
     res = np.zeros_like(pattern)
     if fit_list is None:
@@ -84,10 +84,22 @@ def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 80, area_min = 0,
     return res
 
 def color_peaks_2d(fitlists, patterns, **kwargs):
+    """
+    Given a 2d array (i.e. a series of 1D patterns) and an array
+    of the same length of peak fit parameter lists, return an
+    array of the same shape as patterns in which peak regions are
+    valued 1 and all else is valued 0.
+    """
     assert fitlists.shape == patterns.shape[:-1]
     return np.vstack([color_peaks(fitlist, patterns[i], **kwargs) for i, fitlist in enumerate(fitlists)])
 
 def color_peaks_3d(fitlists_3d, patterns, **kwargs):
+    """
+    Given a 3d array (i.e. a 2d array of 1D patterns) and an array
+    of the same shape of peak fit parameter lists, return a
+    matching-shape array in which peak regions are
+    valued 1 and all else is valued 0.
+    """
     from . import source_separation as sep
     assert len(fitlists_3d.shape) == 2
     assert len(patterns.shape) == 3
