@@ -80,7 +80,7 @@ def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 80, area_min = 0,
         #qwhm = 1
         i0 = int(primary['x0'] + .5)
         if i0 >= imin and primary['FWHM'] <= fwhm_max:# and primary['area'] > area_min:
-            res[i0 - peakwidth_n: i0 + peakwidth_n] = 1
+            res[int(i0 - peakwidth_n): int(i0  + peakwidth_n)] = 1
     return res
 
 def color_peaks_2d(fitlists, patterns, **kwargs):
@@ -640,7 +640,10 @@ def fwhm_finder(patterns, peakShape = 'Voigt', numCurves = 1):
         return np.mean([v['FWHM'] for v in curves.values()])
     return np.median([get_fwhm(curves) for curves in all_curves])
 
-def peakfit_featurize(patterns_pp, fitlists, size_thresh = 5, **kwargs):
+def peakfit_featurize(patterns_pp, fitlists, size_thresh = 5, smooth_ax1 = 'FWHM', smooth_ax0 = 2, threshold_percentile = 50, thicken = True, bgsub=False,
+        log_scale_features = False, fwhm_finder=fwhm_finder, do_flood_thicken = False, max_size_flood = 20,
+        thicken_ax1 = 0, flood_threshold=.95, smooth_factor_ax1 = .125, 
+        peakwidth = 2, **kwargs):
     """
     Given patterns and a list of peak fit parameters, return peak
     shift-corrected features.
@@ -650,10 +653,10 @@ def peakfit_featurize(patterns_pp, fitlists, size_thresh = 5, **kwargs):
     # TODO move these parameters to the function declaration
     labeled, feature_masks, activations, norm_, activations_n1 = get_ridge_features(
         patterns_pp,
-       smooth_ax1 = 'FWHM', smooth_ax0 = 2, threshold_percentile = 50, thicken = True, size_thresh = size_thresh, bgsub=False,
-        log_scale_features = False, fwhm_finder=fwhm_finder, do_flood_thicken = False, max_size_flood = 20,
-        thicken_ax0 = 1, thicken_ax1 = 0, flood_threshold=.95, smooth_factor_ax1 = .125, fitlists = fitlists,
-    peakwidth = 2, **kwargs)
+       smooth_ax1 = smooth_ax1, smooth_ax0 = smooth_ax0, threshold_percentile = threshold_percentile, thicken = thicken, size_thresh = size_thresh, bgsub=bgsub,
+        log_scale_features =log_scale_features, fwhm_finder=fwhm_finder, do_flood_thicken =do_flood_thicken, max_size_flood =max_size_flood,
+        thicken_ax1 =thicken_ax1, flood_threshold=flood_threshold, smooth_factor_ax1 =smooth_factor_ax1, fitlists = fitlists,
+        peakwidth =peakwidth, **kwargs)
     return labeled, feature_masks, activations, norm_, activations_n1
 
 simtype, scaling = 'Cosine', 'linear'

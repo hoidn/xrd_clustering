@@ -92,8 +92,8 @@ def overlay_mask(img, mask, ax = None, **kwargs):
         plt.imshow(np.log(1 + img), cmap = 'jet', **kwargs)
         plt.imshow(rgb_img, cmap = 'Greys', **kwargs)
 
-#imargs = {'cmap': 'jet', 'aspect': 8}
 
+imargs = {'cmap': 'jet', 'aspect': 8}
 def heatmap(fig, arr, label = '', aspect = None, **kwargs):
     ax = fig
 
@@ -116,3 +116,24 @@ def heatmap(fig, arr, label = '', aspect = None, **kwargs):
 def annotate():
     plt.xlabel('$q~(1 / A)$')
     plt.ylabel('sample index')
+
+def plot_clusters_grid(coords, clust, nclust, colors = None, **kwargs):
+    import matplotlib
+    dim = coords.max()
+    coordi = coords - 1
+    hues = [float(float(x)/float(nclust)) for x in range(1,nclust+1)]
+
+    cg = cluster_grid = np.zeros(shape = (dim,dim,3))
+    for k, (x, y) in enumerate(coordi):
+        cluster = clust[k]
+        if colors is None:
+            colors = matplotlib.colors.hsv_to_rgb([hues[cluster],1,1])
+        cluster_grid[x, y] = colors
+#     if debug:
+#         print(coords)
+#     fig = plt.figure()
+#     fig.tight_layout()
+    start, end = nclust - 1, nclust
+    Big_labels = []
+    Big_labels.append(clust)
+    plt.imshow(cg, **kwargs)

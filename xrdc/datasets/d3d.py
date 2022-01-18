@@ -79,7 +79,6 @@ def plot_clusters_grid(coords, clust, nclust):
     plt.imshow(cg)
     
 
-
 debug = False
 nclust = 11# i = 2
 
@@ -124,3 +123,11 @@ def get_data():
 
 def get_2d():
     return X
+
+def oned_to_wafergrid(values):
+    coordi = coords - 1
+    dim = coords.max()
+    cg = cluster_grid = np.zeros(shape = (dim,dim))
+    for k, (x, y) in enumerate(coordi):
+        cluster_grid[x][y] = values[k]
+    return cluster_grid
