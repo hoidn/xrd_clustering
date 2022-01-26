@@ -94,6 +94,10 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     noiseList = []
     paramsList = []
     curve_paramsList = []
+
+    xListNew = []
+    yListNew = []
+    noiseListNew = []
     bnds = expInfo['blockBounds']
     for leftBnd in range(len(bnds) - 1): # indexes
         selector = np.where((subx >= bnds[leftBnd]) & (subx < bnds[leftBnd + 1]))
@@ -105,23 +109,31 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
             noiseList.append(None)
 
     def _store_peakfit_outputs(outputs):
-        for i, ((curveParams, derivedParams), xbit, ybit) in enumerate(zip(outputs, xList, yList)):
-            print(f'    ----Saving data for block between {np.min(xbit):.2f} - {np.max(xbit):.2f}')
-            # output/saving of blocks
-            hitp.save_dict(curveParams, cfg['exportPath'], template + f'_block{i}_curve')
-            hitp.save_dict(derivedParams, cfg['exportPath'], template + f'_block{i}_derived')
-            hitp.save_curve_fit(xbit, ybit, curveParams, cfg['exportPath'], 
-                            template + f'_block{i}', peakShape=fitInfo['peakShape'])
-            paramsList.append(derivedParams)
-            curve_paramsList.append(curveParams)
-
+        for i, ((curveParams, derivedParams), xbit, ybit, noisebit) in enumerate(zip(outputs, xList, yList, noiseList)):
+            if curveParams is None or derivedParams is None:
+                print('dropping block with index', i)
+            else:
+                print(f'    ----Saving data for block between {np.min(xbit):.2f} - {np.max(xbit):.2f}')
+                # output/saving of blocks
+                hitp.save_dict(curveParams, cfg['exportPath'], template + f'_block{i}_curve')
+                hitp.save_dict(derivedParams, cfg['exportPath'], template + f'_block{i}_derived')
+#                TODO there's a memory leak here
+#                hitp.save_curve_fit(xbit, ybit, curveParams, cfg['exportPath'], 
+#                                template + f'_block{i}', peakShape=fitInfo['peakShape'])
+                paramsList.append(derivedParams)
+                curve_paramsList.append(curveParams)
+                xListNew.append(xbit)
+                yListNew.append(ybit)
+                noiseListNew.append(noisebit)
 
     pool = Pool()
     fitoutputs = list(pool.map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
+    print('not using pool')
+    #fitoutputs = list(map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
     _store_peakfit_outputs(fitoutputs)
     print("done")
     pool.clear()
-    return suby, paramsList, noiseList, xList, yList, curve_paramsList
+    return suby, paramsList, noiseListNew, xListNew, yListNew, curve_paramsList
 
 
 def fit_curves(y, **kwargs):

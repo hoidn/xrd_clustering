@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 
 from .datasets import d3d
 
-def do_pca(X):
+def do_pca(X, n = 2):
     from sklearn.decomposition import PCA
 
-    pca = PCA(n_components=2)
+    pca = PCA(n_components=n)
     Xpca = pca.fit_transform(X)
     return pca, Xpca
 

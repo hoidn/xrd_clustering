@@ -6,6 +6,8 @@ from scipy.signal import argrelextrema
 from scipy.ndimage.filters import gaussian_filter as gf
 from scipy.ndimage import gaussian_filter1d as gf1d
 
+from . import misc
+
 debug = False
 
 def distortion(X, means, covi, i):
@@ -700,3 +702,13 @@ def get_peakshift_corrected_heatmap(patterns, activations, labeled):
         for vidx, hidx in zip(vi_fill, hi_fill):
             straight_feature_map[vidx, hidx] = activations[i - 1][vidx]
     return straight_feature_map
+
+def count_bblocks(fitlists, dim = 2):
+    npeak_grid2 = np.array(misc.deepmap(fitlists, lambda lst: len(lst) if lst is not None else 0, dim))
+    npeak_grid2[npeak_grid2 == 0] = np.min(npeak_grid2[npeak_grid2 > 0])
+    return npeak_grid2
+
+def count_peaks(fitlists, dim = 2):
+    npeak_grid2 = np.array(misc.deepmap(fitlists, lambda lst: sum(len(l) for l in lst) if lst is not None else 0, dim))
+    npeak_grid2[npeak_grid2 == 0] = np.min(npeak_grid2[npeak_grid2 > 0])
+    return npeak_grid2

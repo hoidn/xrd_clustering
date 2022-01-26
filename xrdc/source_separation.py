@@ -155,7 +155,7 @@ def iplot_rows(*patterns_list, label1 = 'raw', label2 = 'curve fit subtraction',
         plt.legend()
         plt.grid()
 
-    interactive_plot = interactive(f, i=(0, len(patterns_list[0])), step = 1)
+    interactive_plot = interactive(f, i=(0, len(patterns_list[0]) - 1), step = 1)
     output = interactive_plot.children[-1]
     output.layout.height = height
     return interactive_plot
@@ -526,6 +526,9 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
         low-frequency non-q signal,
         high-frequency non-q signal))
     """
+    for ii, jj in zip((patterns.shape[0],) + patterns.shape[:-1], patterns.shape[:-1]):
+        # array must be square for fourier filtering to work in the non-q dimensions
+        assert ii == jj 
     # TODO filter T before background or after? need to do a more careful comparison
     # calculate the low-frequency component in xy
     nq = patterns.shape[-1]
