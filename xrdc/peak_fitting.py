@@ -136,10 +136,10 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     return suby, paramsList, noiseListNew, xListNew, yListNew, curve_paramsList
 
 
-def fit_curves(y, **kwargs):
+def fit_curves(y, bba_smooth = 1.5, **kwargs):
     if y.sum() != 0:
         x = np.arange(len(y))
-        boundaries = hitp.bayesian_block_finder(x, gf(y, 1.5))
+        boundaries = hitp.bayesian_block_finder(x, gf(y, bba_smooth))
         #boundaries = [b for b in boundaries if b >= boundaries_min and b <= boundaries_max]
         print(boundaries)
         cfg['fitInfo']['blockBounds'] = boundaries
