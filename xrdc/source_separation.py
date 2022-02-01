@@ -137,21 +137,30 @@ def filter_bg(pattern, smooth = 1.5, window_type = 'gaussian', blackman = True,
     return sig[npad: -npad]#, mask[1000: -1000]
 
 
-def iplot_rows(*patterns_list, label1 = 'raw', label2 = 'curve fit subtraction',
+def iplot_rows(*patterns_list, labels = None,
               log = False, offset = 0, height = '550px'):
     """
     Plot a series of curves interactively.
     """
     plt.rcParams["figure.figsize"]=(12, 9)
-    labels = [label1, label2]
+    #labels = [label1, label2]
+    if labels is None:
+        labels = [''] * len(patterns_list)
     def f(i):
         if log:
             plt.semilogy()
         for j, patterns in enumerate(patterns_list):
-            if j < 2:
-                plt.plot(patterns[i] + offset, label = labels[j])
-            else:
-                plt.plot(patterns[i] + offset)
+            try:
+                #assert x is not None
+                #print(len(patterns[i]))
+                for k in range(len(patterns[i])):
+                    len(patterns[i][k]) # TODO hack
+                    plt.plot(patterns[i][k], label = k)
+            except:
+                if j < 2:
+                    plt.plot(patterns[i] + offset, label = labels[j])
+                else:
+                    plt.plot(patterns[i] + offset)
         plt.legend()
         plt.grid()
 

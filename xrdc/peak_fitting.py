@@ -83,8 +83,11 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
         suby = y - background
         if suby.min() < 0:
             if bg_shift_pos:
-                print('negative values in background-subtracted pattern. taking absolute value.')
-                suby = suby - suby.min()
+                print('negative values in background-subtracted pattern. shifting first percentile to zero and setting values below it to zero.')
+                suby = suby.copy()
+                suby = suby - np.percentile(suby, .5)
+                suby[suby < np.percentile(suby, 1)] = 0
+                #suby = suby - suby.min()
             else:
                 suby = suby - (suby * (suby < 0))
 
@@ -127,9 +130,8 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
                 noiseListNew.append(noisebit)
 
     pool = Pool()
-    fitoutputs = list(pool.map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
-    print('not using pool')
-    #fitoutputs = list(map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
+    #fitoutputs = list(pool.map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
+    fitoutputs = list(map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
     _store_peakfit_outputs(fitoutputs)
     print("done")
     pool.clear()
