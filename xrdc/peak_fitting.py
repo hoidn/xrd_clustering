@@ -51,7 +51,7 @@ def _fit_peak(xbit, ybit, noisebit, fitInfo, kwargs):
     return curveParams, derivedParams
 
 def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, background = None, bg_shift_pos = True,
-             **kwargs):
+             parallel = False, **kwargs):
     """
     kwargs are passed to hitp.fit_peak
     """
@@ -129,12 +129,19 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
                 yListNew.append(ybit)
                 noiseListNew.append(noisebit)
 
-    pool = Pool()
-    #fitoutputs = list(pool.map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
-    fitoutputs = list(map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
-    _store_peakfit_outputs(fitoutputs)
-    print("done")
-    pool.clear()
+    if parallel:
+        print('submitting parallel job')
+        pool = Pool()
+        fitoutputs = list(pool.map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
+        _store_peakfit_outputs(fitoutputs)
+        print("done")
+        pool.clear()
+    else:
+        # TODO refactor
+        print('running a single process')
+        fitoutputs = list(map(_fit_peak, xList, yList, noiseList, [fitInfo] * len(xList), [kwargs] * len(xList)))
+        _store_peakfit_outputs(fitoutputs)
+        print("done")
     return suby, paramsList, noiseListNew, xListNew, yListNew, curve_paramsList
 
 
@@ -190,3 +197,47 @@ def curvefit_2d(patterns, background = None, noise_estimate = None, **kwargs):
         yLists[indices] = yList
         
     return arrays, params, noiselists, xLists, yLists, curveparams
+
+###
+# Functions for analyzing peak fitting results
+###
+
+def get_curves(fitoutput, i, j, k = None, peak_range_only = True):
+    """
+    j: profile index within a single peak fit region
+    i: dataset row index
+    k: (if 3d) dataset col index
+    """
+    # TODO clean up
+    arrays, paramsLists, noiselists, xLists, yLists, curveparams = fitoutput
+
+    if k is None:
+        x, y, cparams = xLists[i][j], yLists[i][j], curveparams[i][j]
+
+        # y values for individual Voigts
+        ys = hitp.gen_curve_fits(x, y, cparams, 'Voigt')
+
+        X, Y = np.hstack(xLists[i]), np.hstack(yLists[i])
+        bounds = [onex[0] for onex in xLists[i]]
+        if peak_range_only:
+            mask = (X >= x.min()) & (X <= x.max())
+            return x, y, X[mask], Y[mask], ys, bounds
+        else:
+            return x, y, X, Y, ys, bounds
+    # TODO better handling of different-dimension arrays
+    else:
+        x, y, cparams = xLists[i][k][j], yLists[i][k][j], curveparams[i][k][j]
+
+        # y values for individual Voigts
+        ys = hitp.gen_curve_fits(x, y, cparams, 'Voigt')
+
+        X, Y = np.hstack(xLists[i][k]), np.hstack(yLists[i][k])
+        bounds = [onex[0] for onex in xLists[i][k]]
+        if peak_range_only:
+            mask = (X >= x.min()) & (X <= x.max())
+            return x, y, X[mask], Y[mask], ys, bounds
+        else:
+            return x, y, X, Y, ys, bounds
+    
+def mean2d(arr2d):
+    return arr2d.mean(axis = 0)[:, None].T

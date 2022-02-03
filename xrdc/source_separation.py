@@ -137,11 +137,13 @@ def filter_bg(pattern, smooth = 1.5, window_type = 'gaussian', blackman = True,
     return sig[npad: -npad]#, mask[1000: -1000]
 
 
-def iplot_rows(*patterns_list, labels = None,
-              log = False, offset = 0, height = '550px'):
+def iplot_rows(*patterns_list, X_list = None, styles = None, labels = None,
+              log = False, offset = 0, height = '550px',
+              nested_label_callback = None):
     """
     Plot a series of curves interactively.
     """
+    # TODO X_list argument doesn't work
     plt.rcParams["figure.figsize"]=(12, 9)
     #labels = [label1, label2]
     if labels is None:
@@ -150,17 +152,33 @@ def iplot_rows(*patterns_list, labels = None,
         if log:
             plt.semilogy()
         for j, patterns in enumerate(patterns_list):
+            if styles is not None:
+                extra_args = (styles[j],)
+            else:
+                extra_args = ()
             try:
                 #assert x is not None
                 #print(len(patterns[i]))
+                if X_list is not None:
+                    X = X_list[j]
+                else:
+                    X = np.arange(len(patterns[i][0]))
                 for k in range(len(patterns[i])):
                     len(patterns[i][k]) # TODO hack
-                    plt.plot(patterns[i][k], label = k)
-            except:
-                if j < 2:
-                    plt.plot(patterns[i] + offset, label = labels[j])
+                    if nested_label_callback is not None:
+                        label = nested_label_callback(patterns[i], k)
+                    else:
+                        label = k
+                    plt.plot(X, patterns[i][k], *extra_args, label = label)
+            except: # TODO except what?
+                if X_list is not None:
+                    X = X_list[j]
                 else:
-                    plt.plot(patterns[i] + offset)
+                    X = np.arange(len(patterns[i]))
+                if j < 2:
+                    plt.plot(X, patterns[i] + offset, *extra_args, label = labels[j])
+                else:
+                    plt.plot(X, patterns[i] + offset, *extra_args)
         plt.legend()
         plt.grid()
 
