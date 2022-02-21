@@ -1,5 +1,5 @@
 import ternary
-from k_means_constrained import KMeansConstrained as KMC
+#from k_means_constrained import KMeansConstrained as KMC
 import numpy as np
 
 epsilon = 1e-9

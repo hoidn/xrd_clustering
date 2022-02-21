@@ -3,13 +3,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from importlib import reload
 
-from . import source_separation, featurization, visualization, peak_fitting as sep, feat, vis, pf
+from . import source_separation as sep
+from . import featurization as feat
+from . import visualization as vis
+from . import peak_fitting as pf
 from . import workflows
 from . import geometry
 from . import xrdutils
 
 from scipy.ndimage.filters import gaussian_filter as gf
 from matplotlib.pyplot import figure
+
+def get_curves(fitoutput, i, j, peak_range_only = True):
+    # TODO clean up
+    arrays, paramsLists, noiselists, xLists, yLists, curveparams = fitoutput
+
+    x, y, cparams = xLists[i][j], yLists[i][j], curveparams[i][j]
+
+    # y values for individual Voigts
+    ys = pf.hitp.gen_curve_fits(x, y, cparams, 'Voigt')
+
+    X, Y = np.hstack(xLists[i]), np.hstack(yLists[i])
+    bounds = [onex[0] for onex in xLists[i]]
+    if peak_range_only:
+        mask = (X >= x.min()) & (X <= x.max())
+        return x, y, X[mask], Y[mask], ys, bounds
+    else:
+        return x, y, X, Y, ys, bounds
 
 def plot_one_fit(fsub_stop_2d_1, i, j):
     fig1 = figure(1)
