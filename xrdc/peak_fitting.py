@@ -40,6 +40,7 @@ with open(configPath) as jp:
 #cfg['fitInfo']['blockBounds'] = boundaries
 
 
+
 def _fit_peak(xbit, ybit, noisebit, fitInfo, kwargs):
     if 'guess_params_dict' in kwargs:
         kwargs.pop('guess_params_dict', None)
@@ -52,6 +53,7 @@ def _fit_peak(xbit, ybit, noisebit, fitInfo, kwargs):
                                          **kwargs)
     return curveParams, derivedParams
 
+from copy import deepcopy
 def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, background = None, bg_shift_pos = True,
              parallel = False, cb = _fit_peak, param_guesses = None, **kwargs):
     """
@@ -137,7 +139,7 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
                 yListNew.append(ybit)
                 noiseListNew.append(noisebit)
 
-    kwlist = [kwargs] * len(xList)
+    kwlist = [deepcopy(kwargs) for _ in range(len(xList))]
     for i, guess_params_dict in enumerate(guessList):
         kwlist[i]['guess_params_dict'] = guess_params_dict
     if parallel:
@@ -153,28 +155,100 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
         fitoutputs = list(map(cb, xList, yList, noiseList, [fitInfo] * len(xList), kwlist))
         _store_peakfit_outputs(fitoutputs)
         print("done")
-    pdb.set_trace()
     return suby, paramsList, noiseListNew, xListNew, yListNew, curve_paramsList
 
+def iter_cnames():
+    i = 0
+    while True:
+        yield 'curve {}'.format(i)
+        i += 1
+def dslice(d, i):
+    res = dict()
+    for j, k in enumerate(d.keys()):
+        if j >= i:
+            res[k] = d[k]
+    return res
+
+def _merge_eq(dlist):
+    """
+    round robin merge dicts of equal length
+    """
+    res = dict()
+    vals = [pl.values() for pl in dlist]
+    interleaved = [x for t in zip(*vals) for x in t]
+    for d, s in zip(interleaved, iter_cnames()):
+        res[s] = d
+    return res
+
+def _stack_dicts(d1, d2):
+    """
+    """
+    res = dict()
+    vals = list(d1.values()) + list(d2.values())
+    for d, s in zip(vals, iter_cnames()):
+        res[s] = d
+    return res
 
 def _refine_peak(xbit, ybit, noisebit, fitInfo, kwargs):
     # Restrict range and fit peaks
     guess_params_dict = kwargs['guess_params_dict']
-    guess = paramdict_to_list(guess_params_dict)
-    print(guess)
-    print('dict')
-    print(guess_params_dict)
+    guess = hitp.paramdict_get_params(guess_params_dict)
+    bounds = hitp.paramdict_get_bounds(guess_params_dict)
+    if 'guess_params_dict' in kwargs:
+        kwargs.pop('guess_params_dict', None)
+#    print(guess)
+#    print('dict')
+#    print(guess_params_dict)
     curveParams, derivedParams = hitp.refine_peaks(xbit, ybit,
                         peakShape=fitInfo['peakShape'],
                         fitMode=fitInfo['fitMode'],
                         numCurves=fitInfo['numCurves'],
                         noise_estimate = noisebit,
                         guess = guess,
+                        bounds = bounds,
                          **kwargs)
     return curveParams, derivedParams
 
+def _merge_dicts(dlist):
+    if len(dlist) == 0:
+        return dlist
+    if len(dlist) == 1:
+        return dlist[0]
+    if max(len(d) for d in dlist) == 0:
+        return dlist[0]
+    minlength = min(len(d) for d in dlist)
+    part0 = _merge_eq(dlist)
+    tails = []
+    for d in dlist:
+        if len(d) > minlength:
+            tails.append(dslice(d, minlength))
+    if len(tails) > 0:
+        part1 = _merge_dicts(tails)
+        part0 = _stack_dicts(part0, part1)
+    return part0
+def merge_dicts(*dlist):
+    return _merge_dicts(dlist)
+
 def mk_bnd_list(bounds, overlap = 1):
     return [[a, b] for a, b in list(zip(bounds, bounds[overlap:]))]
+
+def merge_fitoutput_blocks(fitoutputs, overlap = 1):
+    """
+    Merge peak fit parameters from adjacent blocks (defaults to overlap
+    == 1, i.e. no merging)
+    """
+    arrays, params, noiselists, xLists, yLists, plists =\
+        fitoutputs
+    plists_new = []
+    for plist in plists:
+        iterpeak_list = []
+        for shift in range(overlap):
+            iterpeak_list.append(plist[shift:])
+        groups = zip(*iterpeak_list)
+        merged_peaklists = [merge_dicts(*pl) for pl in groups]
+        plists_new.append(merged_peaklists)
+    plists_new = np.vstack(plists_new)
+    return arrays, params, noiselists, xLists, yLists, plists_new 
 
 def fit_curves(y, bba_smooth = 1.5, cb = _fit_peak, overlap = 1, **kwargs):
     if y.sum() != 0:
@@ -231,13 +305,13 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None, 
     return arrays, params, noiselists, xLists, yLists, curveparams
 
 from copy import deepcopy
-def refine_2d(patterns, fitlists, background = None, **kwargs):
+def refine_2d(patterns, fitoutputs, noise_estimate = None, background = None, **kwargs):
     """
     Run BBA and peak-fitting routine for each XRD pattern in a
     multidimensional dataset whose last axis is the q dimension.
     """
-    fitlists = deepcopy(fitlists)
-    arrays, params, noiselists, xLists, yLists, curveparams = fitlists
+    fitoutputs = deepcopy(fitoutputs)
+    arrays, params, noiselists, xLists, yLists, curveparams = fitoutputs
 
     def _background(i):
         if background is not None:
@@ -258,7 +332,8 @@ def refine_2d(patterns, fitlists, background = None, **kwargs):
             noise_estimate_selected = noise_estimate[indices]
         suby, derivedParams, noiseList, xList, yList, cparams =\
             fit_curves(patterns[indices], background = background_selected,
-                        noise_estimate = noise_estimate_selected, cb = _refine_peak, **kwargs)
+                        noise_estimate = noise_estimate_selected, cb = _refine_peak,
+                        param_guesses = curveparams[indices], **kwargs)
         arrays[indices] = suby
         params[indices] = derivedParams
         curveparams[indices] = cparams

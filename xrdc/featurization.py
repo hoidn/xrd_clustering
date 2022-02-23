@@ -358,7 +358,7 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
                       bgsub = False, bg_smooth = 80, log_scale_features = False, logscale_heatmap = True,
                       smooth_ax1 = 'FWHM', smooth_ax0 = 2, fwhm_finder = None, smooth_factor_ax1 = 0.25,
                       a = 5, b = 1, normf = norm, do_flood_thicken = False, max_size_flood = 50, flood_threshold = .95,
-                      thicken_ax0 = 1, thicken_ax1 = 'FWHM', **kwargs):
+                      thicken_ax0 = 1, thicken_ax1 = 'FWHM', plot = True, **kwargs):
 
 
     packed_pp = preprocess(patterns, bg_smooth, bgsub = bgsub, threshold_percentile = threshold_percentile,
@@ -374,29 +374,30 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
     arr, labeled = refine_and_label(arr, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
         max_size_flood = max_size_flood, flood_threshold = flood_threshold, thicken_ax0 = thicken_ax0, thicken_ax1 = thicken_ax1)
     
-    if len(patterns.shape) == 2:
-        # TODO handle 3d case
-        plt.rcParams["figure.figsize"]=(20, 18)
-        plt.subplot(a, b, 1)
-        plt.title('ridges')
-        plt.imshow(get_ridges(patterns, **kwargs), cmap = 'jet')
-        plt.subplot(a, b, 2)
-        plt.title('ridges (smoothed)')
-        plt.imshow(arr, cmap = 'jet')
+    if plot:
+        if len(patterns.shape) == 2:
+            # TODO handle 3d case
+            plt.rcParams["figure.figsize"]=(20, 18)
+            plt.subplot(a, b, 1)
+            plt.title('ridges')
+            plt.imshow(get_ridges(patterns, **kwargs), cmap = 'jet')
+            plt.subplot(a, b, 2)
+            plt.title('ridges (smoothed)')
+            plt.imshow(arr, cmap = 'jet')
 
-        plt.subplot(a, b, 4)
-        plt.title('final feature masks')
+            plt.subplot(a, b, 4)
+            plt.title('final feature masks')
 
-        imshow_labeled(labeled)
+            imshow_labeled(labeled)
 
-        plt.subplot(a, b, 5)
-        plt.title('final feature masks (overlayed)')
-        if logscale_heatmap:
-            plt.imshow(np.log(1 + patterns), cmap = 'jet', interpolation = 'none')
-        else:
-            plt.imshow(patterns, cmap = 'jet', interpolation = 'none')
+            plt.subplot(a, b, 5)
+            plt.title('final feature masks (overlayed)')
+            if logscale_heatmap:
+                plt.imshow(np.log(1 + patterns), cmap = 'jet', interpolation = 'none')
+            else:
+                plt.imshow(patterns, cmap = 'jet', interpolation = 'none')
 
-        plt.imshow(np.sign(labeled), cmap='Greys', alpha = .5)
+            plt.imshow(np.sign(labeled), cmap='Greys', alpha = .5)
 
     feature_masks = np.array([labeled == i for i in range(1, labeled.max() + 1)])
     print(len(feature_masks))
