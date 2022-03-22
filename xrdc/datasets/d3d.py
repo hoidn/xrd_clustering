@@ -131,3 +131,12 @@ def oned_to_wafergrid(values):
     for k, (x, y) in enumerate(coordi):
         cluster_grid[x][y] = values[k]
     return cluster_grid
+
+# Ground truth for sample dataset
+truth_labels=np.array(list([4,4,4,4,4])+list([4,4,4,4,4,4,4,3,3])+list([4,4,4,4,4,4,4,3,3,3,3])+list([4,4,4,11,4,4,4,4,3,3,3,2,2])+list([4,4,4,11,11,4,4,4,3,3,2,2,1])+list([5,5,4,11,11,11,4,4,5,5,2,2,1,1,1])+list([6,5,5,11,11,11,4,5,5,2,2,1,1,1,1])+list([7,6,5,5,11,11,5,5,2,2,1,1,1,1,1])+list([7,7,6,5,5,5,5,10,10,2,1,1,1,1,1])+list([7,7,6,6,10,10,10,10,10,9,1,1,1,1,1])+list([8,8,6,6,6,6,9,9,9,1,1,1,1])+list([8,8,8,6,9,9,9,9,9,1,1,1,1])+list([8,8,6,9,9,9,9,1,1,1,1])+list([8,6,9,9,9,9,1,1,1])+list([9,9,9,1,1]))
+new_truth_labels=[None]*177
+for ii in range(0,177):
+    x,y=dgrid.coord(ii+1)
+    new_grid=dgrid.grid_num(16-x,y)
+    new_truth_labels[new_grid-1]=truth_labels[ii]
+y=np.array(new_truth_labels) - 1

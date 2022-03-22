@@ -14,7 +14,13 @@ from . import xrdutils
 from scipy.ndimage.filters import gaussian_filter as gf
 from matplotlib.pyplot import figure
 
-def get_curves(fitoutput, i, j, peak_range_only = True):
+def get_total_offsets(paramsdict):
+    res = 0
+    for curveparams in paramsdict.values():
+        res += curveparams['y0']#_get_attribute(curveparams, 'y0', i, j + 2)
+    return res
+
+def _get_curves(fitoutput, i, j, peak_range_only = True, bounds = None):
     # TODO clean up
     arrays, paramsLists, noiselists, xLists, yLists, curveparams = fitoutput
 
@@ -24,12 +30,18 @@ def get_curves(fitoutput, i, j, peak_range_only = True):
     ys = pf.hitp.gen_curve_fits(x, y, cparams, 'Voigt')
 
     X, Y = np.hstack(xLists[i]), np.hstack(yLists[i])
-    bounds = [onex[0] for onex in xLists[i]]
+    if bounds is None:
+        bounds = [onex[0] for onex in xLists[i]]
     if peak_range_only:
         mask = (X >= x.min()) & (X <= x.max())
-        return x, y, X[mask], Y[mask], ys, bounds
+        return x, y, X[mask], Y[mask], ys, bounds, get_total_offsets(curveparams[i][j])
     else:
-        return x, y, X, Y, ys, bounds
+        return x, y, X, Y, ys, bounds, get_total_offsets(curveparams[i][j])
+
+def get_curves(fitoutput, i, j, peak_range_only = True, bounds = None):
+    # TODO clean up
+    x, y, X, Y, ys, bounds, total_offset = _get_curves(fitoutput, i, j, peak_range_only = True, bounds = None)
+    return x, y, X, Y, ys, bounds
 
 def plot_one_fit(fsub_stop_2d_1, i, j):
     fig1 = figure(1)
@@ -69,7 +81,7 @@ def plot_all_fits(fsub_stop_2d_1, i):
 
     Ys = []
     yss = []
-    for j in range(len(xLists[i])):
+    for j in range(len(paramsLists[i])):
         x, y, X, Y, ys, bounds = get_curves(fsub_stop_2d_1, i, j)
         yss.append(ys)
         Ys.append(Y)
@@ -81,6 +93,5 @@ def plot_all_fits(fsub_stop_2d_1, i):
     _, _, X, Y, _, _ = get_curves(fsub_stop_2d_1, i, j, peak_range_only=False)
     plt.plot(X, Y, '--', color = 'k')
     plt.grid()
-    plt.vlines(bounds, 0, 800, color = 'red', linestyles = 'dotted')
+    plt.vlines(bounds, 0, Y.max(), color = 'red', linestyles = 'dotted')
     return Ys, yss
-

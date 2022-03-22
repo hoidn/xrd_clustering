@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import argrelextrema
 from scipy.ndimage.filters import gaussian_filter as gf
 from scipy.ndimage import gaussian_filter1d as gf1d
+from scipy.ndimage.measurements import label
 
 from . import misc
 
@@ -61,27 +62,31 @@ def distortion_curve(X, Kmax = 15, **kwargs):
         D[i] = d#**(-Y)
     return grid, D[1:]
 
+def iterpeaks(fit_list):
+    for d in fit_list:
+        for k in d.keys():
+            yield d[k]
+
 def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 80, area_min = 0,
         peakwidth = 'auto'):
     """
     Return an array of 1s in indices corresponding to a peak (+- HWHM) and 0s elsewhere. 
-    
+
     fit_list: list of derived peak fit parameters.
-    
-    Only the first curve in each group of fits is considered.
     """
     res = np.zeros_like(pattern)
     if fit_list is None:
         return res
-    for peaks in fit_list:
-        primary = peaks['curve 0']
+    for peak in iterpeaks(fit_list):
+    #for peaks in fit_list:
+    #    peak = peaks['curve 0']
         if peakwidth == 'auto':
-            peakwidth_n = int((primary['FWHM'] + 1) / 4)
+            peakwidth_n = int((peak['FWHM'] + 1) / 4)
         else:
             peakwidth_n = peakwidth
         #qwhm = 1
-        i0 = int(primary['x0'] + .5)
-        if i0 >= imin and primary['FWHM'] <= fwhm_max:# and primary['area'] > area_min:
+        i0 = int(peak['x0'] + .5)
+        if i0 >= imin and peak['FWHM'] <= fwhm_max and peak['area'] > area_min:
             res[int(i0 - peakwidth_n): int(i0  + peakwidth_n)] = 1
     return res
 
@@ -124,16 +129,26 @@ def get_ridges(orig, axis = 1, fitlists = None, **kwargs):
     edges[max_ind] = 1
     return edges
 
+#def mask_borders(arr, num=1):
+#    mask = np.zeros(arr.shape, bool)
+#    for dim in range(arr.ndim):
+#        mask[tuple(slice(0, num) if idx == dim else slice(None) for idx in range(arr.ndim))] = True  
+#        mask[tuple(slice(-num, None) if idx == dim else slice(None) for idx in range(arr.ndim))] = True  
+#    return mask
+
 def shuffle(bin_img, thicken_ax0 = 1, thicken_ax1 = 1):
     ret = np.zeros_like(bin_img)
+    #borders = mask_borders(bin_img)
     for s0 in range(-round(thicken_ax0), round(thicken_ax0) + 1):
         for s1 in range(-round(thicken_ax1), round(thicken_ax1) + 1):
-            ret += np.roll(bin_img, s0, axis = 0)
-            ret += np.roll(bin_img, s1, axis = 1)
-            if len(bin_img.shape) == 3:
+            ret += (np.roll(bin_img, s0, axis = 0) )
+            if len(bin_img.shape) >= 3:
                 print(3)
-                ret += np.roll(bin_img, s1, axis = 2)
-    return np.sign(ret)
+                ret += (np.roll(bin_img, s1, axis = len(bin_img.shape) - 1) )
+            else:
+                ret += (np.roll(bin_img, s1, axis = 1) )
+    dt = bin_img.dtype
+    return np.sign(ret.astype(int)).astype(dt)
 
 def get_features_spans(labeled, i):
     indices = np.indices(labeled.shape)#.T[:,:,[1, 0]]
@@ -245,7 +260,6 @@ def l2_pairs(a):
 def l2_sim(a):
     return -l2_pairs(a)
     
-from scipy.ndimage.measurements import label
 from sklearn.cluster import KMeans
 
 def preprocess(patterns, bg_smooth = 80, smooth_ax1 = 'FWHM', smooth_ax0 = 2, bgsub = False, threshold_percentile = 50,
@@ -314,6 +328,14 @@ def flood_thicken(labeled, arr, thresh = .95, max_hsize = 50):
         labeled = new_labeled
         labeled[fillx, filly] = i
     return labeled
+    
+def label_peakregions(ridges):
+    if len(ridges.shape) == 2:
+        structure = np.ones((3, 3), dtype=int)  # this defines the connection filter
+    if len(ridges.shape) == 3:
+        structure = np.ones((3, 3, 3), dtype=int)
+    labeled, ncomponents = label(ridges, structure)
+    return labeled, ncomponents
 
 def refine_and_label(ridges, thicken = True, do_flood_thicken = False, size_thresh = 2, sizetype = 'vertical',
         max_size_flood = 50, flood_threshold = .95, thicken_ax0 = 1, thicken_ax1 = 'FWHM'):
@@ -324,11 +346,7 @@ def refine_and_label(ridges, thicken = True, do_flood_thicken = False, size_thre
     else:
         ridges = np.sign(ridges)
 
-    if len(ridges.shape) == 2:
-        structure = np.ones((3, 3), dtype=int)  # this defines the connection filter
-    if len(ridges.shape) == 3:
-        structure = np.ones((3, 3, 3), dtype=int)
-    labeled, ncomponents = label(ridges, structure)
+    labeled, ncomponents = label_peakregions(ridges)
     indices = np.indices(ridges.shape)#.T[:,:,[1, 0]]
 #     xx, yy = indices
 
@@ -358,7 +376,7 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
                       bgsub = False, bg_smooth = 80, log_scale_features = False, logscale_heatmap = True,
                       smooth_ax1 = 'FWHM', smooth_ax0 = 2, fwhm_finder = None, smooth_factor_ax1 = 0.25,
                       a = 5, b = 1, normf = norm, do_flood_thicken = False, max_size_flood = 50, flood_threshold = .95,
-                      thicken_ax0 = 1, thicken_ax1 = 'FWHM', plot = True, **kwargs):
+                      thicken_ax0 = 1, thicken_ax1 = 'FWHM', plot = True, sizetype = 'vertical', **kwargs):
 
 
     packed_pp = preprocess(patterns, bg_smooth, bgsub = bgsub, threshold_percentile = threshold_percentile,
@@ -372,7 +390,8 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
 
     arr = get_ridges(smoothed, **kwargs)
     arr, labeled = refine_and_label(arr, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
-        max_size_flood = max_size_flood, flood_threshold = flood_threshold, thicken_ax0 = thicken_ax0, thicken_ax1 = thicken_ax1)
+        max_size_flood = max_size_flood, flood_threshold = flood_threshold, thicken_ax0 = thicken_ax0, thicken_ax1 = thicken_ax1,
+        sizetype = sizetype)
     
     if plot:
         if len(patterns.shape) == 2:

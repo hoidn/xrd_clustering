@@ -8,8 +8,10 @@ from torch.utils.data import TensorDataset, DataLoader
 import torch
 from . import utils
 import matplotlib.pyplot as plt
+import matplotlib 
 
 from .datasets import d3d
+from . import featurization as feat
 
 def do_pca(X, n = 2):
     from sklearn.decomposition import PCA
@@ -137,3 +139,65 @@ def plot_clusters_grid(coords, clust, nclust, colors = None, **kwargs):
     Big_labels = []
     Big_labels.append(clust)
     plt.imshow(cg, **kwargs)
+
+
+def norm(arr):
+    return arr / arr.mean()
+
+def plot_summary(patterns, slow_q, fast_q, slow_T, fast_T, activations_n1,
+        straightened_heatmap = None, similarity = 'cos', **kwargs):
+    """
+    Make a figure summarizing source separation, peak shift correction,
+    and similarity matrix for a 2D dataset.
+    """
+    if similarity == 'cos':
+        simfn = feat.csim_pairs
+        simlabel = 'Cos'
+    elif similarity == 'l2':
+        simfn = feat.l2_sim
+        simlabel = 'L2'
+    else:
+        raise ValueError
+    if kwargs is not None:
+        (imargs.update(kwargs))
+    matplotlib.rcParams.update({'font.size': 18})
+
+    fig = plt.figure(figsize=(12, 23), constrained_layout=False)
+    spec = fig.add_gridspec(7, 2)
+
+    #imargs = {'cmap': 'jet', 'aspect': 1.5}
+
+    ax0 = fig.add_subplot(spec[0, :])
+    heatmap(ax0, np.log(1 + norm(patterns)), label = 'Log raw signal')
+    # annotate_axes(ax0, 'ax0')
+
+    ax1 = fig.add_subplot(spec[1, :])
+    heatmap(ax1, np.log10(np.abs(fast_T / patterns) ), "Log noise magnitude (relative)")
+    #annotate_axes(ax10, 'ax10')
+
+
+    ax2 = fig.add_subplot(spec[2, :])
+    heatmap(ax2, slow_q, 'Extracted background')
+    # plt.title("Log signal")
+
+    ax3 = fig.add_subplot(spec[3, :])
+    #heatmap(ax3, np.log(1 + norm(fast_q - fast_q.min())))
+    heatmap(ax3, np.log(1 + norm((slow_T - slow_q) - (slow_T - slow_q).min())), "Log extracted signal")
+    # annotate_axes(ax11, 'ax11')
+
+    if straightened_heatmap is not None:
+        ax4 = fig.add_subplot(spec[4, :])
+        heatmap(ax4, np.log(1 + straightened_heatmap), interpolation = 'none',
+                label = 'Featurization (peak shift-corrected)')
+
+    #imargs = {'cmap': 'jet', 'aspect': 1}
+
+    ax50 = fig.add_subplot(spec[5:7, 0])
+    img = ax50.imshow(feat.csim_pairs(patterns), cmap = 'jet')
+    plt.title('Cos similarity (raw)')
+    plt.colorbar(img, ax = ax50)
+
+    ax51 = fig.add_subplot(spec[5:7, 1])
+    img = ax51.imshow(simfn(activations_n1.T), cmap = 'jet')
+    plt.title('{} similarity (featurized)'.format(simlabel))
+    plt.colorbar(img, ax = ax51)

@@ -80,12 +80,23 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     # restrict range?
     subx, suby = np.arange(len(y)) + 1, y
     
-    if background is None:
-        # Background subtract/move to zero
-        suby = suby - np.min(suby)
-        subx, suby = hitp.bkgd_sub(subx, suby, downsample_int)
-    else:
-        suby = y - background
+#    if background is None:
+#        # Background subtract/move to zero
+##        suby = suby - np.min(suby)
+##        subx, suby = hitp.bkgd_sub(subx, suby, downsample_int)
+#        pass
+#    else:
+#        suby = y - background
+#        if suby.min() < 0:
+#            if bg_shift_pos:
+#                print('negative values in background-subtracted pattern. shifting first percentile to zero and setting values below it to zero.')
+#                suby = suby.copy()
+#                suby = suby - np.percentile(suby, .5)
+#                suby[suby < np.percentile(suby, 1)] = 0
+#                #suby = suby - suby.min()
+#            else:
+#                suby = suby - (suby * (suby < 0))
+    def adj_suby(suby):
         if suby.min() < 0:
             if bg_shift_pos:
                 print('negative values in background-subtracted pattern. shifting first percentile to zero and setting values below it to zero.')
@@ -95,6 +106,7 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
                 #suby = suby - suby.min()
             else:
                 suby = suby - (suby * (suby < 0))
+        return suby
 
     # segment rangeinto two...
     xList = []
@@ -109,9 +121,23 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     noiseListNew = []
     bnds_list = expInfo['blockBounds_list']
     for i, (leftBnd, rightBnd) in enumerate(bnds_list): # indexes
+#        if i == 21:
+#            pdb.set_trace()
         selector = np.where((subx >= leftBnd) & (subx < rightBnd))
         xList.append(subx[selector])
-        yList.append(suby[selector])
+        if background is not None and len(background) != len(subx):
+            yList.append(adj_suby(suby[selector] - background[i]))
+            suby[selector] -= background[i]
+            print('background segments')
+        elif background is not None:
+            yList.append(adj_suby(suby[selector] - background[selector]))
+            suby[selector] -= background[selector]
+            print('global background')
+        else:
+            yList.append(suby[selector])
+            
+        print(suby[selector])
+        print(suby[selector])
         if noise_estimate is not None:
             noiseList.append(noise_estimate[selector] + 1e-9) 
         else:
@@ -232,7 +258,8 @@ def merge_dicts(*dlist):
 def mk_bnd_list(bounds, overlap = 1):
     return [[a, b] for a, b in list(zip(bounds, bounds[overlap:]))]
 
-def merge_fitoutput_blocks(fitoutputs, overlap = 1):
+def merge_fitoutput_blocks(fitoutputs, overlap = 1, lists_only = False,
+        params_only = False):
     """
     Merge peak fit parameters from adjacent blocks (defaults to overlap
     == 1, i.e. no merging)
@@ -240,20 +267,64 @@ def merge_fitoutput_blocks(fitoutputs, overlap = 1):
     arrays, params, noiselists, xLists, yLists, plists =\
         fitoutputs
     plists_new = []
-    for plist in plists:
-        iterpeak_list = []
-        for shift in range(overlap):
-            iterpeak_list.append(plist[shift:])
-        groups = zip(*iterpeak_list)
-        merged_peaklists = [merge_dicts(*pl) for pl in groups]
-        plists_new.append(merged_peaklists)
-    plists_new = np.vstack(plists_new)
-    return arrays, params, noiselists, xLists, yLists, plists_new 
+    params_new = []
 
-def fit_curves(y, bba_smooth = 1.5, cb = _fit_peak, overlap = 1, **kwargs):
+    def _iter(sources, merger):
+        accum = []
+        iterlist = []
+        for source in sources:
+            for shift in range(overlap):
+                iterlist.append(source[shift:])
+            groups = zip(*iterlist)
+            merged = [merger(*pl) for pl in groups]
+            accum.append(merged)
+        res = np.empty(len(accum), object)
+        for k, elt in enumerate(accum):
+            res[k] = elt
+        return res
+        #return np.vstack(accum)
+
+    def _merge_arrs(*arrs):
+        return np.hstack(arrs)
+
+#    plists_new = _iter(plists, merge_dicts)
+#    params_new = _iter(params, merge_dicts)
+
+#    for plist, paramslist in zip(plists, params):
+#        iterpeak_list = []
+#        iterparams_list = []
+#        for shift in range(overlap):
+#            iterpeak_list.append(plist[shift:])
+#            iterparams_list.append(paramslist[shift:])
+#        groups = zip(*iterpeak_list)
+#        groups_params = zip(*iterparams_list)
+#        merged_peaklists = [merge_dicts(*pl) for pl in groups]
+#        merged_paramslists = [merge_dicts(*pl) for pl in groups_params]
+#        #print(merged_paramslists)
+#        plists_new.append(merged_peaklists)
+#        params_new.append(merged_paramslists)
+#    plists_new = np.vstack(plists_new)
+#    params_new = np.vstack(params_new)
+#    return arrays, params_new, noiselists, xLists, yLists, plists_new 
+    if lists_only:
+        return arrays, params, _iter(noiselists, _merge_arrs),\
+            _iter(xLists, _merge_arrs), _iter(yLists, _merge_arrs),\
+            plists
+    elif params_only:
+        return arrays, _iter(params, merge_dicts), noiselists,\
+            xLists, yLists,\
+            _iter(plists, merge_dicts) 
+    return arrays, _iter(params, merge_dicts), _iter(noiselists, _merge_arrs),\
+        _iter(xLists, _merge_arrs), _iter(yLists, _merge_arrs),\
+        _iter(plists, merge_dicts) 
+
+def fit_curves(y, bba_smooth = 1.5, cb = _fit_peak, overlap = 1, bounds = None, **kwargs):
     if y.sum() != 0:
         x = np.arange(len(y))
-        boundaries = hitp.bayesian_block_finder(x, gf(y, bba_smooth))
+        if bounds is None:
+            boundaries = hitp.bayesian_block_finder(x, gf(y, bba_smooth))
+        else:
+            boundaries = bounds
         #boundaries = [b for b in boundaries if b >= boundaries_min and b <= boundaries_max]
         print(boundaries)
         cfg['fitInfo']['blockBounds'] = boundaries
@@ -263,15 +334,12 @@ def fit_curves(y, bba_smooth = 1.5, cb = _fit_peak, overlap = 1, **kwargs):
     return np.zeros_like(y), None, None, None, None, None
 
 import pdb
-def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None, **kwargs):
+def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None,
+        bounds = None, **kwargs):
     """
     Run BBA and peak-fitting routine for each XRD pattern in a
     multidimensional dataset whose last axis is the q dimension.
     """
-    def _background(i):
-        if background is not None:
-            return background[i]
-        return None
     def _noise_estimate(i):
         if noise_estimate is not None:
             return noise_estimate[i]
@@ -292,9 +360,12 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None, 
         if noise_estimate is not None:
 #            pdb.set_trace()
             noise_estimate_selected = noise_estimate[indices]
+        else:
+            noise_estimate_selected = None
         suby, derivedParams, noiseList, xList, yList, cparams =\
             fit_curves(patterns[indices], background = background_selected,
-                        noise_estimate = noise_estimate_selected, **kwargs)
+                        noise_estimate = noise_estimate_selected, bounds = bounds,
+                        **kwargs)
         arrays[indices] = suby
         params[indices] = derivedParams
         curveparams[indices] = cparams
@@ -305,7 +376,7 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None, 
     return arrays, params, noiselists, xLists, yLists, curveparams
 
 from copy import deepcopy
-def refine_2d(patterns, fitoutputs, noise_estimate = None, background = None, **kwargs):
+def refine_2d(patterns, fitoutputs, noise_estimate = None, background = True, **kwargs):
     """
     Run BBA and peak-fitting routine for each XRD pattern in a
     multidimensional dataset whose last axis is the q dimension.
@@ -313,10 +384,6 @@ def refine_2d(patterns, fitoutputs, noise_estimate = None, background = None, **
     fitoutputs = deepcopy(fitoutputs)
     arrays, params, noiselists, xLists, yLists, curveparams = fitoutputs
 
-    def _background(i):
-        if background is not None:
-            return background[i]
-        return None
     def _noise_estimate(i):
         if noise_estimate is not None:
             return noise_estimate[i]
@@ -330,6 +397,8 @@ def refine_2d(patterns, fitoutputs, noise_estimate = None, background = None, **
         if noise_estimate is not None:
 #            pdb.set_trace()
             noise_estimate_selected = noise_estimate[indices]
+        else:
+            noise_estimate_selected = None
         suby, derivedParams, noiseList, xList, yList, cparams =\
             fit_curves(patterns[indices], background = background_selected,
                         noise_estimate = noise_estimate_selected, cb = _refine_peak,
