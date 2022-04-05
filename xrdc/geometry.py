@@ -115,3 +115,14 @@ def circle_to_simplex(x, y):
 
 def csim(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+def find_closest(A, target):
+    """
+    Return index of element in array A closest to target value
+    """
+    idx = A.searchsorted(target)
+    idx = np.clip(idx, 1, len(A)-1)
+    left = A[idx-1]
+    right = A[idx]
+    idx -= target - left < right - target
+    return idx
