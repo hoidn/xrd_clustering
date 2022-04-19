@@ -201,3 +201,13 @@ def plot_summary(patterns, slow_q, fast_q, slow_T, fast_T, activations_n1,
     img = ax51.imshow(simfn(activations_n1.T), cmap = 'jet')
     plt.title('{} similarity (featurized)'.format(simlabel))
     plt.colorbar(img, ax = ax51)
+
+def iplot(f, arr, height = '550px'):
+    """
+    Plot a series of curves interactively.
+    """
+    plt.rcParams["figure.figsize"]=(12, 9)
+    interactive_plot = interactive(f, i=(0, len(arr) - 1), step = 1)
+    output = interactive_plot.children[-1]
+    output.layout.height = height
+    return interactive_plot
