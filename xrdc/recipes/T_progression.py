@@ -40,8 +40,14 @@ def shuffle(bin_img, size = 1):
     return np.sign(ret)
 
 patterns = d2d.patterns
-slow_q, fast_q, slow_T, fast_T = sep.separate_signal(patterns, cutoff = .25,  threshold = 50, smooth_q = 1.7)
+slow_q, fast_q, slow_T, fast_T = sep.separate_signal(patterns, cutoff = .25,  threshold = 50, smooth_q = 1.7, background_after_filter = False)
 background = slow_q
+
+#def separate(**kwargs):
+#    patterns = d2d.patterns
+#    slow_q, fast_q, slow_T, fast_T = sep.separate_signal(patterns, cutoff = .25,  threshold = 50, smooth_q = 1.7, **kwargs)
+#    background = slow_q
+#    return slow_q, fast_q, slow_T, fast_T
 
 def default_featurize(patterns_pp):
     #patterns_pp = gf(patterns, (1, 1.7))

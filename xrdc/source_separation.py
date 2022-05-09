@@ -503,7 +503,7 @@ def CTinterpolation(imarray, smoothing = 0):
 
 # This function is the main entry point
 def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
-        background_after_filter = True, q_cutoff = .001,**kwargs):
+        background_after_filter = True, q_cutoff = .001, **kwargs):
     """
     Decompose a dataset into high- and low-frequency components in the
     non-q dimensions. Any rows that sum to zero are neglected.

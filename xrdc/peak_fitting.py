@@ -340,6 +340,8 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None,
     Run BBA and peak-fitting routine for each XRD pattern in a
     multidimensional dataset whose last axis is the q dimension.
     """
+    if bounds is None and patterns.shape[0] != 1:
+        raise ValueError("bounds must be provided to process multiple samples")
     def _noise_estimate(i):
         if noise_estimate is not None:
             return noise_estimate[i]
