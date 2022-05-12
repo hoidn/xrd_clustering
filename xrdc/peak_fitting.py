@@ -99,13 +99,14 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     def adj_suby(suby):
         if suby.min() < 0:
             if bg_shift_pos:
-                print('negative values in background-subtracted pattern. shifting first percentile to zero and setting values below it to zero.')
+                print('negative values in background-subtracted pattern. shifting to create all non-negative values.')
                 suby = suby.copy()
-                suby = suby - np.percentile(suby, .5)
-                suby[suby < np.percentile(suby, 1)] = 0
-                #suby = suby - suby.min()
+#                suby = suby - np.percentile(suby, .5)
+#                suby[suby < np.percentile(suby, 1)] = 0
+                suby = suby - suby.min()
             else:
-                suby = suby - (suby * (suby < 0))
+                pass
+                #suby = suby - (suby * (suby < 0))
         return suby
 
     # segment rangeinto two...
