@@ -61,7 +61,8 @@ def default_featurize(patterns_pp):
 patterns_pp_simple = fast_q * (fast_q > 0)
 labeled_simple, feature_masks_simple, activations_simple, _norm, activations_n1_simple =\
     default_featurize(patterns_pp_simple);
-# straightened_heatmap_simple = feat.get_peakshift_corrected_heatmap(patterns_pp_simple, activations_simple, labeled_simple)
+
+straightened_heatmap_simple = feat.get_peakshift_corrected_heatmap(patterns_pp_simple, activations_simple, labeled_simple)
 
 def get_activations(patterns_pp_simple):
     activations_n1_simple = feat.norm((feature_masks_simple * patterns_pp_simple).sum(axis = 2), axis = 1)
