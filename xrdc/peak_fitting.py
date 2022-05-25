@@ -121,6 +121,7 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
     yListNew = []
     noiseListNew = []
     bnds_list = expInfo['blockBounds_list']
+    #for i, (leftBnd, rightBnd) in zip(boundaries, boundaries[1:]): # indexes
     for i, (leftBnd, rightBnd) in enumerate(bnds_list): # indexes
 #        if i == 21:
 #            pdb.set_trace()
@@ -341,8 +342,14 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None,
     Run BBA and peak-fitting routine for each XRD pattern in a
     multidimensional dataset whose last axis is the q dimension.
     """
-    if bounds is None and patterns.shape[0] != 1:
-        raise ValueError("bounds must be provided to process multiple samples")
+#    if bounds is None and patterns.shape[0] != 1:
+#        raise ValueError("bounds must be provided to process multiple samples")
+#    else:
+#        try:
+#            len(bounds[0])
+#        except TypeError:
+#            bounds = np.vstack([bounds for _ in len(patterns)])
+            
     def _noise_estimate(i):
         if noise_estimate is not None:
             return noise_estimate[i]
@@ -367,7 +374,7 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None,
             noise_estimate_selected = None
         suby, derivedParams, noiseList, xList, yList, cparams =\
             fit_curves(patterns[indices], background = background_selected,
-                        noise_estimate = noise_estimate_selected, bounds = bounds,
+                        noise_estimate = noise_estimate_selected, bounds = bounds,# TODO hack
                         **kwargs)
         arrays[indices] = suby
         params[indices] = derivedParams
