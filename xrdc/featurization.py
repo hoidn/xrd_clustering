@@ -197,6 +197,8 @@ def norm(arr, axis = 0, log_scale = False):
             arr[xxi(i), yyi(i)] = (ai ) / ai.std()
             #arr[xxi(i), yyi(i)] = (ai - ai.min()) / ai.std()
             if log_scale:
+                #arr[xxi(i), yyi(i)] *= ((ai.mean() - global_min + 1))
+                #arr[xxi(i), yyi(i)] *= (np.log(ai.mean() + 1))
                 arr[xxi(i), yyi(i)] *= (np.log(ai.mean() - global_min + 1))
         
         return arr

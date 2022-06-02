@@ -45,6 +45,7 @@ def _fit_peak(xbit, ybit, noisebit, fitInfo, kwargs):
     if 'guess_params_dict' in kwargs:
         kwargs.pop('guess_params_dict', None)
     # Restrict range and fit peaks
+    print('peak fit kwargs', kwargs)
     curveParams, derivedParams = hitp.fit_peak(xbit, ybit,
                         peakShape=fitInfo['peakShape'],
                         fitMode=fitInfo['fitMode'],
