@@ -86,6 +86,7 @@ def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 80, area_min = 0,
             peakwidth_n = peakwidth
         #qwhm = 1
         i0 = int(peak['x0'] + .5)
+        # TODO I instead of area
         if i0 >= imin and peak['FWHM'] <= fwhm_max and peak['area'] > area_min:
             res[int(i0 - peakwidth_n): int(i0  + peakwidth_n)] = 1
     return res
@@ -200,6 +201,7 @@ def norm(arr, axis = 0, log_scale = False):
                 #arr[xxi(i), yyi(i)] *= ((ai.mean() - global_min + 1))
                 #arr[xxi(i), yyi(i)] *= (np.log(ai.mean() + 1))
                 arr[xxi(i), yyi(i)] *= (np.log(ai.mean() - global_min + 1))
+                #arr[xxi(i), yyi(i)] = np.log(1 + arr[xxi(i), yyi(i)])
         
         return arr
             #stds *= np.log(means)
