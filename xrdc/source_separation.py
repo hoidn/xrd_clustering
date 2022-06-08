@@ -283,7 +283,7 @@ def interprows(arr, mask, fn = None, **kwargs):
         for row, rowmask in zip(arr, mask):
             x = np.indices(row.shape)[0][rowmask]
             y = row[rowmask]
-            f = fn(x, y, **kwargs)
+            f = fn(x, y)
             res.append(f(np.indices(row.shape)[0]))
         return np.vstack(res)
     elif len(arr.shape) == 3:
@@ -501,7 +501,9 @@ def CTinterpolation(imarray, smoothing = 0):
     combined = fill(CTinterpolated)# np.where(np.isnan(CTinterpolated), smoothNN, CTinterpolated)
     return combined
 
-def NDinterpolation(imarray, smoothing = 0):
+from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import NearestNDInterpolator
+def NDinterpolation(imarray, smoothing = 0, ct = NearestNDInterpolator):
     """
     Do a 2d interpolation to fill in zero values of a 2d ndarray.
     
@@ -512,7 +514,6 @@ def NDinterpolation(imarray, smoothing = 0):
         detid : string
         smoothing : numeric
     """
-    from scipy.interpolate import NearestNDInterpolator as ct
     dimx, dimy = np.shape(imarray)
     gridx, gridy = np.indices(imarray.shape)#np.arange(dimx), np.arange(dimy)
     
