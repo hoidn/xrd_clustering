@@ -56,18 +56,18 @@ fast_T = fast_T * scale
 fast_q = fast_q * scale
 
 
-#def default_featurize(patterns_pp):
-#    #patterns_pp = gf(patterns, (1, 1.7))
-#    labeled, feature_masks, activations, norm_, activations_n1 = feat.get_ridge_features(
-#        patterns_pp,
-#       smooth_ax1 = 'FWHM', smooth_ax0 = 1, threshold_percentile = 75, thicken = True, size_thresh = 5, bgsub=False,
-#        log_scale_features = False, fwhm_finder=feat.fwhm_finder, do_flood_thicken = False, max_size_flood = 20,
-#        thicken_ax0 = 0, thicken_ax1 = 1, flood_threshold=.95, smooth_factor_ax1 = .125)
-#    return labeled, feature_masks, activations, norm_, activations_n1
-#
-#patterns_pp_simple = fast_q * (fast_q > 0)
-#labeled_simple, feature_masks_simple, activations_simple, _norm, activations_n1_simple =\
-#    default_featurize(patterns_pp_simple);
+def default_featurize(patterns_pp):
+    #patterns_pp = gf(patterns, (1, 1.7))
+    labeled, feature_masks, activations, norm_, activations_n1 = feat.get_ridge_features(
+        patterns_pp,
+       smooth_ax1 = 'FWHM', smooth_ax0 = 1, threshold_percentile = 75, thicken = True, size_thresh = 5, bgsub=False,
+        log_scale_features = False, fwhm_finder=feat.fwhm_finder, do_flood_thicken = False, max_size_flood = 20,
+        thicken_ax0 = 0, thicken_ax1 = 1, flood_threshold=.95, smooth_factor_ax1 = .125)
+    return labeled, feature_masks, activations, norm_, activations_n1
+
+patterns_pp_simple = fast_q * (fast_q > 0)
+labeled_simple, feature_masks_simple, activations_simple, _norm, activations_n1_simple =\
+    default_featurize(patterns_pp_simple);
 
 straightened_heatmap_simple = feat.get_peakshift_corrected_heatmap(patterns_pp_simple, activations_simple, labeled_simple)
 

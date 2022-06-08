@@ -501,6 +501,49 @@ def CTinterpolation(imarray, smoothing = 0):
     combined = fill(CTinterpolated)# np.where(np.isnan(CTinterpolated), smoothNN, CTinterpolated)
     return combined
 
+def NDinterpolation(imarray, smoothing = 0):
+    """
+    Do a 2d interpolation to fill in zero values of a 2d ndarray.
+    
+    Uses scipy.interpolate import CloughTocher2DInterpolator.
+    
+    Arguments:
+        imarray : np.ndarray
+        detid : string
+        smoothing : numeric
+    """
+    from scipy.interpolate import NearestNDInterpolator as ct
+    dimx, dimy = np.shape(imarray)
+    gridx, gridy = np.indices(imarray.shape)#np.arange(dimx), np.arange(dimy)
+    
+
+    def interp_2d(imarray):
+        # flattened values of all pixels
+        z = imarray.flatten()
+        z_good = np.where(z != 0)[0]
+        if len(z_good) == 0:
+            return np.zeros_like(imarray)
+        else:
+            x, y = gridx.flatten(), gridy.flatten()
+            xgood, ygood = x[z_good], y[z_good]
+
+            points = np.vstack((xgood, ygood)).T
+            values = z[z_good]
+            interpolator = ct(points, values)
+            return interpolator(x, y).reshape(imarray.shape)
+
+    # Input to the CT interpolation is a smoothed NN interpolation
+    # This pre-interpolation step, combined with a sufficiently large value of
+    # smoothing, is often necessary to prevent the interpolation from
+    # oscillating/overshooting.
+    smoothNN = gf(fill(imarray), smoothing)
+    smooth_masked = np.where(np.isclose(imarray, 0), 0., smoothNN)
+    CTinterpolated = interp_2d(smooth_masked)
+    
+    # Fill in NAN values from outside the convex hull of the interpolated points
+    combined = fill(CTinterpolated)# np.where(np.isnan(CTinterpolated), smoothNN, CTinterpolated)
+    return combined
+
 # This function is the main entry point
 def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
         background_after_filter = True, q_cutoff = .001, **kwargs):
