@@ -296,7 +296,7 @@ def interprows(arr, mask, fn = None, **kwargs):
                 rowmask = mask[i, j, :]
                 x = np.indices(row.shape)[0][rowmask]
                 y = row[rowmask]
-                f = fn(x, y, **kwargs)
+                f = fn(x, y)
                 res[i, j, :] = f(np.indices(row.shape)[0])
         return res
 
