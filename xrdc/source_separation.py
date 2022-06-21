@@ -283,8 +283,14 @@ def interprows(arr, mask, fn = None, **kwargs):
         for row, rowmask in zip(arr, mask):
             x = np.indices(row.shape)[0][rowmask]
             y = row[rowmask]
-            f = fn(x, y)
-            res.append(f(np.indices(row.shape)[0]))
+            if len(x) >= 2:
+                f = fn(x, y)
+                res.append(f(np.indices(row.shape)[0]))
+            else:
+                if len(y) > 0:
+                    res.append(np.repeat(max(y), len(row)))
+                else:
+                    res.append(np.repeat(0., len(row)))
         return np.vstack(res)
     elif len(arr.shape) == 3:
         res = np.zeros_like(arr)

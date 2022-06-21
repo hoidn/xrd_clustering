@@ -69,13 +69,11 @@ def lorentz_q(q):
     twotheta = to_twotheta(q)
     return lorenz_ang(twotheta)
 
-lamb = 1.54184
-
-def to_q(twotheta):
+def to_q(twotheta, lamb = 1.54184):
     rad = twotheta * np.pi / 180
     return (4 * np.pi / lamb) * np.sin(rad / 2)
 
-def to_twotheta(q):
+def to_twotheta(q, lamb = 1.54184):
     return 2 * np.arcsin(q * lamb / (4 * np.pi)) * 180 / np.pi
 
 
