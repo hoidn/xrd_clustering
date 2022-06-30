@@ -69,8 +69,6 @@ def filter_peaks(fitoutput, bounds, i, boundoffset = 1, dim = 1, buffer = 0, inv
     params_filt = []#list(paramsList[:boundoffset - 1]) # Voigt parameters
     summary_filt = []#list(curve_paramsList[:boundoffset - 1]) # Human-readable peak parameters
     for i in range(len(params)):
-#        if i == 21:
-#            pdb.set_trace()
         j = i + boundoffset
 
         peakcenters = flat_extract([[params[i]]], 'x0')

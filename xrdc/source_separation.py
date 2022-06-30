@@ -6,57 +6,44 @@ from scipy.signal import butter
 from scipy import signal
 from scipy.signal import convolve2d as conv2
 from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift, fftn, ifftn
-from scipy.signal import blackman
+from scipy.signal import blackman as blackman_window
 from scipy.ndimage import gaussian_filter as gf
 from scipy.interpolate import interp1d
 from scipy.interpolate import NearestNDInterpolator
 from scipy import ndimage as nd
-
 from ipywidgets import interactive
-
 import pdb
 
-#def plot_df(*args):
-#    df = pd.DataFrame([p for p, _ in args]).T
-#    df.columns = [l for _, l in args ]
-#    return df.plot()
+#def lorenz(gamma, x, x0):
+#    return ( 1. / (np.pi * gamma)) * (gamma**2) / ((x - x0)**2 + gamma**2)
 
-#def lowpass_g(size, y):
-#    gwindow = signal.gaussian(len(y), std = size)
-#    L = power(fftshift(fft(gwindow)))
-#    L /= L.max()
-#    return L
-
-#def highpass_g(size, y):
-#    return 1 - lowpass_g(size, y)
-
-def clip_low(x, frac_zero, invert = False):
-    N = len(x)
-    nz = int(frac_zero * N)
-    x2  = x.copy()
-    mask = np.ones_like(x)
-    mask[:( nz) // 2 ] = 0
-    mask[(-nz) // 2:] = 0
-    return mask * x
-
-def spec_fft_2(pattern, pad = 1000, roll = 0, do_conv_window = False, do_window = True, log = False):
-    if log:
-        y = np.pad(np.log(pattern + 1), pad, mode = 'edge')
-    else:
-        y = np.pad(pattern, pad, mode = 'edge')
-    y = np.roll(y, roll)
-    # Number of sample points
-    N = y.shape[0]
-    w = blackman(N)
-    #w = 1
-    #yf = fft(y * w)
-    if do_window:
-        ywf = fft(y*w)
-    else:
-        ywf = fft(y)
-    if do_conv_window:
-        ywf = conv_window(ywf)
-    return w, ywf
+#def do_rl(sig, window_width = 4, peak_width = 2, window_type = 'gaussian',
+#         bwindow = None, norm = False):
+#    from skimage import color, data, restoration
+#    """
+#    Richardson-Lucy deconvolution
+#    """
+#    if window_type == 'gaussian':
+#        gwindow = signal.gaussian(len(y), std = window_width)
+#        #gwindow = lorenz(peak_width, np.arange(len(sig)), len(sig) // 2)
+#        L = power(fftshift(fft(gwindow)))
+#        L /= L.max()
+#        H = 1 - L
+#    elif window_type == 'step':
+#        H = clip_low_window(sig, .001) * bwindow
+#    else:
+#        raise ValueError
+#    
+#    g = signal.gaussian(len(y), std = peak_width)
+#    gfft = fftshift(fft(g))
+#    
+#    psf = mag(ifft(gfft * H))[:, None].T
+#    psf_1d = psf[:, 1275:1324]
+#    deconvolved_RL = restoration.richardson_lucy((sig[:, None].T) / (10 * sig.max()), psf_1d, iterations=120)
+#    if not norm:
+#        return deconvolved_RL[0]
+#    else:
+#        return deconvolved_RL[0] / deconvolved_RL[0].mean()
 
 def power(arr):
     """
@@ -65,46 +52,7 @@ def power(arr):
     ampsq = arr * np.conjugate(arr)
     return np.real(ampsq)
 
-def mag(x):
-    return np.sqrt(power(x))
-
-def lorenz(gamma, x, x0):
-    return ( 1. / (np.pi * gamma)) * (gamma**2) / ((x - x0)**2 + gamma**2)
-
-def do_rl(sig, window_width = 4, peak_width = 2, window_type = 'gaussian',
-         bwindow = None, norm = False):
-    from skimage import color, data, restoration
-    """
-    Richardson-Lucy deconvolution
-    """
-    if window_type == 'gaussian':
-        gwindow = signal.gaussian(len(y), std = window_width)
-        #gwindow = lorenz(peak_width, np.arange(len(sig)), len(sig) // 2)
-        L = power(fftshift(fft(gwindow)))
-        L /= L.max()
-        H = 1 - L
-    elif window_type == 'step':
-        H = clip_low_window(sig, .001) * bwindow
-    else:
-        raise ValueError
-    
-    g = signal.gaussian(len(y), std = peak_width)
-    gfft = fftshift(fft(g))
-    
-    psf = mag(ifft(gfft * H))[:, None].T
-    psf_1d = psf[:, 1275:1324]
-    deconvolved_RL = restoration.richardson_lucy((sig[:, None].T) / (10 * sig.max()), psf_1d, iterations=120)
-    if not norm:
-        return deconvolved_RL[0]
-    else:
-        return deconvolved_RL[0] / deconvolved_RL[0].mean()
-
-def conv_window(sig, mode = 'same'):
-    tmp = np.real(np.sqrt(fftshift(fft(window)) * np.conjugate(fftshift(fft(window)))))
-    return np.convolve(sig, tmp / tmp.max(), mode =mode)
-
-def filter_bg(pattern, smooth = 1.5, window_type = 'gaussian', blackman = True,
-    q_cutoff = .001, deconvolve = False, invert = False, **kwargs):
+def filter_bg(pattern, smooth = 1.5, invert = False, **kwargs):
     """
     Extract high-frequency component (in q) from a 2d XRD dataset by
     high-pass filtering with a Blackman window and/or step function,
@@ -113,28 +61,13 @@ def filter_bg(pattern, smooth = 1.5, window_type = 'gaussian', blackman = True,
     The option for deconvolution should be considered deprecated since
     it doesn't help with extraction.
     """
-    # TODO how necessary is padding?
-    qsize = pattern.shape[0]
-    npad = int(1.66 * qsize) # TODO shouldn't be hardcoded
-    window, ywf = spec_fft_2(pattern, npad)
-    if window_type == 'gaussian': 
-        raise NotImplementedError
-        #sig = if_mag(patterns, highpass_g(q_cutoff, ywf) * ywf, **kwargs)
-    elif window_type == 'step': # hard step
-        clipped = clip_low(ywf, q_cutoff, invert = invert)
-        if blackman:
-            if invert:
-                window = 1 - window
-            sig = if_mag(clipped * window, **kwargs)
-        else:
-            sig = if_mag(clipped, **kwargs)
-    else:
-        raise ValueError
-    if deconvolve:
-        sig = do_rl(sig, q_cutoff, 2.2)
-    sig = gf(sig, smooth)
-    #print(npad)
-    return sig[npad: -npad]#, mask[1000: -1000]
+
+    blackman = blackman_window(len(pattern))
+    # high-pass filtered diffraction pattern
+    fastq_indicator = power(ifft(ifftshift((1 - blackman) * fftshift(fft(pattern)))))
+
+    sig = gf(fastq_indicator, smooth)
+    return sig
 
 
 def iplot_rows(*patterns_list, X_list = None, styles = None, labels = None,
@@ -190,29 +123,13 @@ def iplot_rows(*patterns_list, X_list = None, styles = None, labels = None,
 def logim(arr, offset = 1):
     plt.imshow(np.log(offset + arr), cmap = 'jet')
 
-def if_mag(arr, phase = 0, truncate = False, toreal = 'psd', **kwargs):
-    """
-    Return the amplitude or real component of the inverse fourier
-    transform, with optional phase shift.
-    """
-    phase = np.exp(1j * phase)
-    tmp = ifft(arr)
-    if toreal == 'psd':
-        real = np.real(np.sqrt(np.conjugate(tmp) * tmp))
-    elif toreal == 'real':
-        real = np.real(tmp)
-    else:
-        raise ValueError
-    if truncate:
-        raise NotImplementedError
-    return real
 
 def extract_single(row, q_cutoff = .001, smooth_q = 1.7):
     """
     Default procedure for extracting the high-frequency component of a
     single 1d diffraction pattern.
     """
-    return filter_bg(row, smooth_q, window_type = 'step', deconvolve = False, toreal = 'psd', q_cutoff = q_cutoff)
+    return filter_bg(row, smooth_q, q_cutoff = q_cutoff)
 
 def apply_bottom(func, arr, axis = None, **kwargs):
     """

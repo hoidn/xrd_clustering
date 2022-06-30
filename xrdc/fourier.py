@@ -20,10 +20,17 @@ def plot_df(*args):
     return df.plot()
 
 def lowpass_g(size, y):
-    gwindow = signal.gaussian(len(y), std = size)
-    L = power(fft(gwindow))
+    L = signal.gaussian(len(y), std = len(y) / (size * np.pi**2), sym = False)
     L /= L.max()
     return L
+
+def highpass_g(size, y):
+    return 1 - lowpass_g(size, y)
+
+def bandpass_g(L, H, y):
+    L = lowpass_g(L, y)
+    H = highpass_g(H, y)
+    return L * H
 
 def clip_high(x, frac_zero):
     N = len(x)
@@ -55,10 +62,6 @@ def clip_low_window(x, frac_zero):
     x2[:( nz) // 2 ] = 0
     x2[(-nz) // 2:] = 0
     return x2
-
-
-def highpass_g(size, y):
-    return 1 - lowpass_g(size, y)
 
 def if_mag(arr, phase = 0, truncate = False, toreal = 'psd', **kwargs):
     #print("arr shape", arr.shape)
