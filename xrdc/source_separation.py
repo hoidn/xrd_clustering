@@ -54,21 +54,15 @@ def power(arr):
 
 def filter_bg(pattern, smooth = 1.5, invert = False, **kwargs):
     """
-    Extract high-frequency component (in q) from a 2d XRD dataset by
-    high-pass filtering with a Blackman window and/or step function,
-    taking the IFFT amplitude, and applying a gaussian smoothing.
-
-    The option for deconvolution should be considered deprecated since
-    it doesn't help with extraction.
+    Extract high-frequency component from a 1d spectrum by high-pass
+    filtering with a 1 - Blackman window, taking the IFFT squared
+    amplitude, and applying gaussian smoothing.
     """
-
     blackman = blackman_window(len(pattern))
     # high-pass filtered diffraction pattern
     fastq_indicator = power(ifft(ifftshift((1 - blackman) * fftshift(fft(pattern)))))
 
-    sig = gf(fastq_indicator, smooth)
-    return sig
-
+    return gf(fastq_indicator, smooth)
 
 def iplot_rows(*patterns_list, X_list = None, styles = None, labels = None,
               log = False, offset = 0, height = '550px',
@@ -335,7 +329,7 @@ def gauss_low_Nd(arr, cutoff):
 
 def lowpassNd(arr, cutoff, mode = 'gaussian'):
     """
-    Low pass filter with a circular step aperture
+    Low pass filter with a circular step or gaussian frequency mask
     """
     if mode == 'step':
         raise NotImplementedError # TODO update this
@@ -357,12 +351,11 @@ def imshow_log(arr):
     arr[arr < 0] = 0
     plt.imshow(np.log(floor + arr ), cmap = 'jet')
 
-
 #https://stackoverflow.com/questions/3662361/fill-in-missing-values-with-nearest-neighbour-in-python-numpy-masked-arrays
 def fill(data, invalid=None):
     """
-    Replace the value of invalid 'data' cells (indicated by 'invalid') 
-    by the value of the nearest valid data cell
+    Replace the value of invalid 'data' cells by the value of the
+    nearest valid data cell
 
     Input:
         data:    numpy array of any dimension
@@ -373,9 +366,6 @@ def fill(data, invalid=None):
     Output: 
         Return a filled array. 
     """
-    #import numpy as np
-    #import scipy.ndimage as nd
-
     if invalid is None: invalid = np.isnan(data)
 
     ind = nd.distance_transform_edt(invalid, return_distances=False, return_indices=True)
