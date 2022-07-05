@@ -325,7 +325,7 @@ def fit_curves(y, bba_smooth = 1.5, cb = _fit_peak, overlap = 1, bounds = None, 
     if y.sum() != 0:
         x = np.arange(len(y))
         if bounds is None:
-            boundaries = hitp.bayesian_block_finder(x, gf(y, bba_smooth))
+            boundaries = hitp.bayesian_block_finder(x, gf(y, bba_smooth), norm = cfg['fitInfo']['bba_norm'])
         else:
             boundaries = bounds
         #boundaries = [b for b in boundaries if b >= boundaries_min and b <= boundaries_max]
