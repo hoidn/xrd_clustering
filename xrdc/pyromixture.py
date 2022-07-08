@@ -35,13 +35,14 @@ smoke_test = ('CI' in os.environ)
 assert pyro.__version__.startswith('1.8.0')
 
 ndim = 2
-N = 1000
 K = T = 3
+num_samples = 50
+N = 500
+#alpha = .3
+alpha = 1
 
-alpha = .3
-
-params = dict()
-#@config_enumerate
+# This is the 'full' generative model
+params = dict() # hack to store intermediate variables from the model. TODO there must be a pyro way of doing this
 def model(data = None, scale = .01, alpha = alpha, covariance = True, alpha_components = 1,
          N = N):
     """
@@ -80,7 +81,6 @@ def model(data = None, scale = .01, alpha = alpha, covariance = True, alpha_comp
 
 #         weighted_expectation = dist.Delta(
 #             torch.einsum('...ji,...j->...i', locs, local_weights))
-
         
         if covariance:
             # Lower cholesky factor of the covariance matrix
@@ -97,6 +97,48 @@ def model(data = None, scale = .01, alpha = alpha, covariance = True, alpha_comp
                 dist.MultivariateNormal(weighted_expectation, torch.eye(ndim) * scales),
                 obs=data)
 
+
+def model2(data = None, scale = .01, alpha = alpha, covariance = True,
+         N = N):
+    """
+    Simplified generative model that uses a symmetric dirichlet for mixing topics.
+    alpha: dirichlet parameter for phase mixing
+    """
+    # Global variables.
+    concentration = torch.ones(
+            ()
+        )
+    # TODO should this be grouped with 'components' instead of 'dims'?
+    with pyro.plate('dims', ndim):
+        scales = pyro.sample('scales', dist.Uniform(scale * .5, scale * 1.5))#dist.LogNormal(-2.5, 1))
+
+    with pyro.plate('components', K):
+        locs = pyro.sample('locs', dist.MultivariateNormal(torch.zeros(ndim), torch.eye(ndim)))
+        
+        if covariance:
+            # Implies a uniform distribution over correlation matrices
+            L_omega = pyro.sample("L_omega", LKJCholesky(ndim, concentration))
+
+    with pyro.plate('data', N):
+        local_weights = pyro.sample("phase_weights", Dirichlet(alpha))
+
+        weighted_expectation = pyro.deterministic('weighted_expectation',
+                                    torch.einsum('...ji,...j->...i', locs, local_weights)
+                                         )
+        if covariance:
+            # Lower cholesky factor of the covariance matrix
+            L_Omega = pyro.deterministic('L_Omega',
+                torch.matmul(torch.diag(scales.sqrt()),
+                                   torch.einsum('...jik,...j->...ik', L_omega, local_weights))
+                )
+            pyro.sample('obs',
+                        dist.MultivariateNormal(weighted_expectation, scale_tril=L_Omega),
+                        obs=data)
+        else:
+            pyro.sample('obs',
+                dist.MultivariateNormal(weighted_expectation, torch.eye(ndim) * scales),
+                obs=data)
+
 def get_log_likelihood(model, guide, data, num_samples = 50):
     posterior = Predictive(model, guide = guide, num_samples=num_samples)()
     return (
@@ -104,98 +146,32 @@ def get_log_likelihood(model, guide, data, num_samples = 50):
         .log_prob(data).sum().item()
     )
 
-# def gen_data(N = N):
-#     # Global variables.
-#     weights = pyro.sample('weights', dist.Dirichlet(1 * torch.ones(K)))
-    
-#     concentration = torch.ones(
-#             ()
-#         )
-#     # Implies a uniform distribution over correlation matrices
-#     L_omega = pyro.sample("L_omega", LKJCholesky(ndim, concentration))
 
-#     with pyro.plate('dims', ndim):
-#         scale = pyro.sample('scale', dist.Uniform(.009, .011))#dist.LogNormal(-2.5, 1))
-#         #print('scale', scale, scale.shape)
+#def gen_data(N = N, alpha = alpha, noise_scale = .01, alpha_components = 5):
+#    def _model(*args, **kwargs):
+#        return cfg['vi_model'](data = None, scale = noise_scale, alpha = alpha, alpha_components =\
+#                    alpha_components, N = N)
+#
+#    prior_samples = Predictive(_model, {}, num_samples=1)()
+#    
+#    # TODO what's the difference between Predictive(model) and 
+#    # Predictive(model, guide = guide)?
+#
+#    return prior_samples['weighted_expectation'][0],\
+#        prior_samples['locs'][0], prior_samples['obs'][0]
 
-#     with pyro.plate('components', K):
-#         locs = pyro.sample('locs', dist.MultivariateNormal(torch.zeros(ndim), torch.eye(ndim)))
-#         #print('locs', locs.shape)
-
-#     with pyro.plate('data', N):
-#         # Local variables.
-#         #assignment = pyro.sample('assignment', dist.Categorical(weights))
-#         local_weights = pyro.sample("phase_weights", Dirichlet(weights * alpha))
-
-#         weighted_expectation = torch.einsum('...ji,...j->...i', locs, local_weights)
-        
-#         # Lower cholesky factor of the covariance matrix
-#         L_Omega = torch.matmul(torch.diag(scale.sqrt()), L_omega)
-        
-#         #z = pyro.sample('z', dist.MultivariateNormal(weighted_expectation, torch.eye(ndim) * scale))
-#         data = dist.MultivariateNormal(weighted_expectation, scale_tril = L_Omega).sample()
-#     return weighted_expectation, locs, data
-
-# def gen_data(N = N, alpha = alpha, noise_scale = 1.):
-#     alpha_components = 5
-#     # Global variables.
-#     weights = pyro.sample('weights', dist.Dirichlet(alpha_components * torch.ones(K)))
-    
-#     concentration = torch.ones(
-#             ()
-#         )
-
-#     with pyro.plate('dims', ndim):
-#         scale = pyro.sample('scale', dist.Uniform(noise_scale * .009, noise_scale * .011))#dist.LogNormal(-2.5, 1))
-#         #print('scale', scale, scale.shape)
-
-#     with pyro.plate('components', K):
-#         locs = pyro.sample('locs', dist.MultivariateNormal(torch.zeros(ndim), torch.eye(ndim)))
-
-#         # Implies a uniform distribution over correlation matrices
-#         L_omega = pyro.sample("L_omega", LKJCholesky(ndim, concentration))
-        
-#     with pyro.plate('data', N):
-#         # Local variables.
-#         #assignment = pyro.sample('assignment', dist.Categorical(weights))
-#         local_weights = pyro.sample("phase_weights", Dirichlet(weights * alpha))
-
-#         weighted_expectation = torch.einsum('...ji,...j->...i', locs, local_weights)
-        
-#         # Lower cholesky factor of the covariance matrix
-#         L_Omega = torch.matmul(torch.diag(scale.sqrt()),
-#                                torch.einsum('...jik,...j->...ik', L_omega, local_weights))
-        
-#         #z = pyro.sample('z', dist.MultivariateNormal(weighted_expectation, torch.eye(ndim) * scale))
-#         data = dist.MultivariateNormal(weighted_expectation, scale_tril = L_Omega).sample()
-#     return weighted_expectation, locs, data
 
 def gen_data(N = N, alpha = alpha, noise_scale = .01, alpha_components = 5):
     def _model(*args, **kwargs):
-        return model(data = None, scale = noise_scale, alpha = alpha, alpha_components =\
+        return cfg['generation_model'](data = None, scale = noise_scale, alpha = alpha, alpha_components =\
                     alpha_components, N = N)
 
     prior_samples = Predictive(_model, {}, num_samples=1)()
     
     # TODO what's the difference between Predictive(model) and 
     # Predictive(model, guide = guide)?
-
     return prior_samples['weighted_expectation'][0],\
-        prior_samples['locs'][0], prior_samples['obs'][0]
-
-
-def gen_data(N = N, alpha = alpha, noise_scale = .01, alpha_components = 5):
-    def _model(*args, **kwargs):
-        return model(data = None, scale = noise_scale, alpha = alpha, alpha_components =\
-                    alpha_components, N = N)
-
-    prior_samples = Predictive(_model, {}, num_samples=1)()
-    
-    # TODO what's the difference between Predictive(model) and 
-    # Predictive(model, guide = guide)?
-
-    return prior_samples['weighted_expectation'][0],\
-        prior_samples['locs'][0], prior_samples['obs'][0]
+        prior_samples['locs'][0], prior_samples['obs'][0], prior_samples['weights'][0]
 
 
 def guide(data = None, scale = .01, alpha = alpha, covariance = True, alpha_components = 1,
@@ -223,40 +199,20 @@ def guide(data = None, scale = .01, alpha = alpha, covariance = True, alpha_comp
     with pyro.plate('components', K):
         locs = pyro.sample('locs', dist.MultivariateNormal(tau, torch.eye(ndim)))
         
-# #         if covariance:
-#             # Implies a uniform distribution over correlation matrices
-#         L_omega = pyro.sample("L_omega", LKJCholesky(ndim, concentration))
-
     with pyro.plate('data', N):
         # Local variables.
         local_weights = pyro.sample("phase_weights", dist.Delta(phi).to_event(1))
 
-#         weighted_expectation = pyro.param('weighted_expectation',
-#                                     torch.einsum('...ji,...j->...i', locs, local_weights)
-#                                          )
         weighted_expectation = torch.einsum('...ji,...j->...i', locs, local_weights)
         params['weighted_expectation'] = weighted_expectation
         
-# #         if covariance:
-#         # Lower cholesky factor of the covariance matrix
-#         L_Omega = torch.matmul(torch.diag(scale.sqrt()),
-#                                torch.einsum('...jik,...j->...ik', L_omega, local_weights))
-
-#         pyro.sample('obs',
-#                     dist.MultivariateNormal(weighted_expectation, scale_tril=L_Omega),
-#                     obs=data)
-#         else:
         pyro.sample('obs',
             dist.MultivariateNormal(weighted_expectation, scale * torch.eye(ndim)),
             obs=data)
 
-
 #guide = AutoDelta(model)
-
 n_iter = 1600
-
-
-optim = Adam({'lr': 0.05})
+optim = Adam({'lr': 0.005})
 elbo = Trace_ELBO()
 
 def vi_inference(data, num_samples, N, alpha, n_iter = n_iter, noise_scale = .01,
@@ -267,7 +223,7 @@ def vi_inference(data, num_samples, N, alpha, n_iter = n_iter, noise_scale = .01
     losses = []
     log_likelihoods = []
     def f(*args):
-        return model(*args, scale = noise_scale, alpha = alpha, N = N)
+        return cfg['inference_model'](*args, scale = noise_scale, alpha = alpha, N = N)
     
 #     pyro.clear_param_store()
 #     initial_likelihood = get_log_likelihood(f, guide, data, n_likelihood_samples)
@@ -316,9 +272,6 @@ def loc_stds(component_locs):
 def loc_means(component_locs):
     return component_locs.mean(axis = 0)
 
-alpha = 1
-num_samples = 50
-N = 500
 
 # mpl.rcParams['figure.figsize'] =(10,5)
 #alpha = .5
@@ -344,15 +297,18 @@ def get_beta(va, vb, vc, norm = True):
         beta /= (2 * ref_area)
     return beta
 
-def mcmc_posterior(data, num_samples, N, alpha, noise_scale = .01):
+def mcmc_posterior(data, num_samples, N, alpha, noise_scale = .01, **kwargs):
     def f(*args):
-        return model(*args, scale = noise_scale, alpha = alpha, N = N)
+        return cfg['inference_model'](*args, scale = noise_scale, alpha = alpha, N = N)
 
     kernel = NUTS(f)
     mcmc = MCMC(kernel, num_samples=num_samples, warmup_steps=50)
     mcmc.run(data)
     posterior_samples = mcmc.get_samples()
-    return posterior_samples, f, [None]
+    return {'predictive': posterior_samples,
+        'model': f,
+        'losses': [None]}
+    #return posterior_samples, f, [None]
 
 
 class Run(object):
@@ -362,17 +318,18 @@ class Run(object):
     """
     def __init__(self, alpha, datadict = None, num_samples = 100, N = 500, noise_scale = .01,
                 inference_posterior_fn = mcmc_posterior, inference_seed = None,
-                infer_noise_scale = .01, n_warmup = 0):
+                infer_noise_scale = .01, n_warmup = 0, warmup = True):
     # set this if you want the same cluster params independent of alpha
     #pyro.set_rng_seed(3)
-    
+
     # TODO noise_scale hyperparameter tuning?
         if datadict is None:
-            we, locs, data = gen_data(N, alpha = alpha, noise_scale = noise_scale)
+            we, locs, data, weights_ground = gen_data(N, alpha = alpha, noise_scale = noise_scale)
         else:
-            we, locs, data = datadict['latents'], datadict['locs'], datadict['data']
+            we, locs, data, weights_ground = datadict['latents'], datadict['locs'], datadict['data'], datadict['weights']
         
         self.we = we
+        self.weights = weights_ground
         self.locs = locs
         self.data = data
         self.num_samples = num_samples
@@ -386,8 +343,9 @@ class Run(object):
         if inference_seed is not None:
             pyro.set_rng_seed(inference_seed)
             
-        self.warmup(n_iter = n_warmup)
-        pyro.clear_param_store()
+        if warmup:
+            self.warmup(n_iter = n_warmup)
+            pyro.clear_param_store()
 
     def get_loglikelihood(self, num_samples = 50, set_seed = True):
 #         if set_seed:
@@ -413,22 +371,6 @@ class Run(object):
             pyro.set_rng_seed(self.inference_seed)
             
         self.warmup(n_iter = n_iter)
-#         return inference_output
-
-#     def test_seed_likelihood(self, seed):
-#         def initialize(seed, *args, **kwargs):
-#     global global_guide, svi, prior_sample
-#     pyro.set_rng_seed(seed + 1000) # add offset to avoid collision with other places where we're setting the seed
-#     #prior_sample = init()
-#     pyro.clear_param_store()
-    
-# #     we, locs, data = gen_data(N, alpha = alpha, noise_scale = noise_scale)
-    
-#     vi_init = Run(*args, n_iter = 0, **kwargs).inference_output
-# #     vi_inference(data, num_samples, N, alpha, n_iter = n_iter, noise_scale = .01,
-# #                 n_likelihood_samples = 400)
-
-#     def postprocess(self):
         # TODO cleanup
         we = self.we  
         locs = self.locs  
@@ -437,7 +379,6 @@ class Run(object):
 
         posterior_samples = inference_output['predictive']
         wrapped_model = inference_output['model']
-        losses = inference_output['losses']
 
         components = [posterior_samples["locs"][:, i, :] for i in range(T)]
 
@@ -456,7 +397,6 @@ class Run(object):
         permutation_norms = [np.linalg.norm(locs_posterior_means[ci_permute, :] - np.array(locs))
                              for ci_permute in clust_permutations]
         best_permutation = clust_permutations[np.argmin(permutation_norms)]
-
         locs_diffs = locs_posterior_means[best_permutation, :] - np.array(locs)
         
         # reshuffle random seed 
@@ -465,15 +405,14 @@ class Run(object):
         # merge with the posterior samples dictionary, instead of extracting sites
         # individually
         result_dict = {'data': data, 'locs': locs, 'samples': posterior_samples, 'rms_locs': rms_locs,
-                       'diff_locs': locs_diffs, 'permutation': best_permutation, 'alpha': alpha, 'beta': beta,
-                      'components': components, 'latents': we, 'noise_scale': self.noise_scale,
-                      'model': wrapped_model, 'losses': losses, 'init_loss': losses[0],
-                      'weighted_expectation': posterior_samples['weighted_expectation'],
-                      'L_Omega': posterior_samples['L_Omega'],
-                      'log_likelihoods': inference_output['log_likelihoods'],
+                      'diff_locs': locs_diffs, 'permutation': best_permutation, 'alpha': self.alpha, 'beta': beta,
+                      'components': components, 'latents': we, 'weights': self.weights, 'noise_scale': self.noise_scale,
+                      'model': wrapped_model, 'centroid_mu_posterior': locs_posterior_means,
+                      #'weighted_expectation': posterior_samples['weighted_expectation'],
+                      #'L_Omega': posterior_samples['L_Omega'],
+                      #'log_likelihoods': inference_output['log_likelihoods'],
                       'guide': guide, 'posterior_locs': posterior_locs,
                       'inference_output': inference_output}
-        
         return result_dict
 
 
@@ -530,25 +469,102 @@ def get_max(f, metric, *args, attempts = 1):
     #print(best[0])
     return best[1]
 
+def plt_heatmap_alpha_noise(res3, zname = 'diff_locs', yscale = 300, label = None, vmax = 1):    
+    noise = np.array([elt['noise_scale'] for elt in res3])
 
-start_seed = 1
-pyro.set_rng_seed(start_seed)
+    x = alphas
+    y = noise * yscale
+    z = np.array([np.linalg.norm(elt[zname]) for elt in res3])
 
-ndim = T - 1
+    X = np.logspace(np.log10(min(x)), np.log10(max(x)))
+    Y = np.linspace(min(y), max(y))
+    X, Y = np.meshgrid(X, Y)  # 2D grid for interpolation
+    #interp = CloughTocher2DInterpolator(list(zip(x, y)), z)
+    interp = NearestNDInterpolator(list(zip(x, y)), z)
+    Z = interp(X, Y)
+    plt.pcolormesh(X, Y, Z, shading='auto', cmap = 'jet', vmin = 0, vmax = vmax)
+    plt.plot(x, y, "ok")#, label="input point")
+    plt.legend()
+    plt.colorbar()
+    #plt.axis("equal")
+    plt.xlabel('alpha')
+    plt.ylabel('noise scale')
+    plt.title(label)
+    plt.semilogx()
+    plt.show()
+    
+def initialize(seed, *args, **kwargs):
+    global global_guide, svi, prior_sample
+        
+    def f():
+        pyro.clear_param_store()
+        if seed is not None:
+            pyro.set_rng_seed(seed + 1000) # add offset to avoid collision with other places where we're setting the seed
+        return Run(*args, **kwargs)
+    run = f()
+    vi_init = run.inference_output
+    ll = run.get_loglikelihood(num_samples = 50)
+    print(ll)
+    return ll, run
 
-alphas = np.logspace(-1, 1, 10)
+def get_inference_seed(data_seed, *args, **kwargs):
+    (loss, run), seed = max((initialize(data_seed, *args, **kwargs,
+          inference_seed = s), s) for s in range(10))
+    return loss, run, seed
 
-res_noise = []
-for data_seed, a in enumerate(alphas):
-#     res_noise.append(Run(a, num_samples = 50, N = 500,
-#                             noise_scale= .03 * np.random.uniform() + 1e-3,
-#                             inference_posterior_fn=vi_inference, inference_seed = None).run()
-#                     )
-    noise_scale = .03 * np.random.uniform() + 1e-3
-    print(noise_scale)
-    loss, run, seed = get_inference_seed(data_seed, a, num_samples = 100, N = 500,
-                                noise_scale= noise_scale,
-                                infer_noise_scale = noise_scale,
-                                inference_posterior_fn=vi_inference)
-    res_noise.append(run.run())
-    print(loss, seed)
+def grid_generate(alphas, noise_scales):
+    start_seed = 1
+    pyro.set_rng_seed(start_seed)
+    ndim = T - 1
+    runs = []
+    res = []
+    for data_seed, (a, noise_scale) in enumerate(zip(alphas, noise_scales)):
+        print(noise_scale)
+#        loss, run, seed = get_inference_seed(data_seed, a, num_samples = 100, N = 500,
+#                                    noise_scale= noise_scale,
+#                                    infer_noise_scale = noise_scale,
+#                                    inference_posterior_fn=vi_inference)
+        run = Run(a, noise_scale = noise_scale, inference_posterior_fn=vi_inference, N = 500,
+                    warmup = False)
+        runs.append(run)
+        res.append(run.run())
+    return runs, res
+
+def gridscan_alpha(alphas = np.logspace(-1, 1, 10), noise_scale = .03 * .5 + 1e-3):
+    scales = np.repeat(noise_scale, len(alphas))
+    runs, runoutputs = grid_generate(alphas, scales)
+    return alphas, scales, runs, runoutputs
+
+def gridscan_noise(alpha = 1, noise_scales = .03 * np.random.uniform(10) + 1e-3):
+    alphas = np.repeat(alpha, len(noise_scales))
+    runs, runoutputs = grid_generate(alphas, noise_scales)
+    return alphas, scales, runs, runoutputs
+
+#### plotting functions
+def ploti2(res, i, save = False, xlim = None, ylim = None):
+    locs = res[i]['locs']
+    data = res[i]['data']
+    plt.scatter(*(data).T, s = 1, label = 'training observations')
+    plt.scatter(*torch.vstack(res[i]['components']).T, s = 2, label = 'end members (posterior samples)')
+    
+    plt.scatter(*(locs.T), s = 50, label = 'end members (ground truth)')
+    
+    post_loc_centroids = np.vstack([comp.mean(axis = 0) for comp in res[i]['components']])
+    plt.scatter(*post_loc_centroids.T, c = 'k', s = 50, label = 'end members (posterior sample centroids)')
+    #plt.scatter(*(nfindr_locs(data).T), s = 50, label = 'N-FINDR')
+
+    plt.legend()
+    #plt.legend(loc = 'upper left')
+
+    #plt.title('alpha = {:.2f}; beta = {:.2f}'.format(alphas[i], betas[i]))
+    if xlim:
+        plt.xlim(xlim)
+    if ylim:
+        plt.ylim(ylim)
+    if save:
+        plt.savefig('data/figs/{}.png'.format(i))
+
+
+cfg = dict()
+cfg['generation_model'] = model
+cfg['inference_model'] = model
