@@ -43,6 +43,7 @@ def get_curves(fitoutput, i, j, peak_range_only = True, bounds = None):
     x, y, X, Y, ys, bounds, total_offset = _get_curves(fitoutput, i, j, peak_range_only = True, bounds = None)
     return x, y, X, Y, ys, bounds
 
+        
 def plot_one_fit(fsub_stop_2d_1, i, j):
     fig1 = figure(1)
     frame1=fig1.add_axes((.1,.3,.8,.6))
@@ -95,3 +96,21 @@ def plot_all_fits(fsub_stop_2d_1, i):
     plt.grid()
     plt.vlines(bounds, 0, Y.max(), color = 'red', linestyles = 'dotted')
     return Ys, yss
+
+class Block(object):
+    def __init__(self, fitoutput, j, i = 0):
+        x, y, X, Y, ys, bounds = get_curves(fitoutput, 0, j)
+        array, params, noise, x, y, curveparams = [elt[i][j] for elt in fitoutput]
+        self.x = x
+        self.y = y
+        self.peaks = [{'y': yy, 'params': pp} for yy, pp in zip(ys, params.values())]
+        self.fit_total = ys[-1]
+
+def extract_block(fitoutput, j):
+    x, y, X, Y, ys, bounds = fitoutput
+    return Block(x, y, ys, [row[j] for row in fitoutputs])
+
+def extract_blocks(fitoutput, i = 0):
+    fitoutput_row = [elt[i] for elt in fitoutput]
+    for j in range(len(fitoutput_row[2])):
+        yield Block(fitoutput, j, i)
