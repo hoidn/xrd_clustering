@@ -259,9 +259,6 @@ def vi_inference(data, num_samples, N, alpha, n_iter = n_iter, noise_scale = .01
           'log_likelihoods': log_likelihoods}
     return res
 
-#     return Predictive(model, guide = guide, num_samples=num_samples)(), f, losses
-
-
 def rms(arr):
     arr = np.array(arr)
     return np.sqrt((arr**2).sum() / len(arr))
@@ -277,13 +274,16 @@ def loc_means(component_locs):
 #alpha = .5
 pyro.set_rng_seed(3)
 
-def closest_permutation_diffs(locs_posterior_means, locs):
+def closest_permutation(locs_posterior_means, locs):
     # Figure out mapping from ground truth end members to inferred end members
     clust_permutations = list(permutations(np.arange(T), r = T))
     permutation_norms = [np.linalg.norm(locs_posterior_means[ci_permute, :] - np.array(locs))
                          for ci_permute in clust_permutations]
     best_permutation = clust_permutations[np.argmin(permutation_norms)]
+    return best_permutation
 
+def closest_permutation_diffs(locs_posterior_means, locs):
+    best_permutation = closest_permutation(locs_posterior_means, locs)
     locs_diffs = locs_posterior_means[best_permutation, :] - np.array(locs)
     return locs_diffs
 
@@ -408,13 +408,9 @@ class Run(object):
                       'diff_locs': locs_diffs, 'permutation': best_permutation, 'alpha': self.alpha, 'beta': beta,
                       'components': components, 'latents': we, 'weights': self.weights, 'noise_scale': self.noise_scale,
                       'model': wrapped_model, 'centroid_mu_posterior': locs_posterior_means,
-                      #'weighted_expectation': posterior_samples['weighted_expectation'],
-                      #'L_Omega': posterior_samples['L_Omega'],
-                      #'log_likelihoods': inference_output['log_likelihoods'],
                       'guide': guide, 'posterior_locs': posterior_locs,
                       'inference_output': inference_output}
         return result_dict
-
 
 def nfindr_locs(data):
     data = np.array(data).copy()
@@ -469,7 +465,7 @@ def get_max(f, metric, *args, attempts = 1):
     #print(best[0])
     return best[1]
 
-def plt_heatmap_alpha_noise(res3, zname = 'diff_locs', yscale = 300, label = None, vmax = 1):    
+def plt_heatmap_alpha_noise(res3, alphas, zname = 'diff_locs', yscale = 300, label = None, vmax = 1):    
     noise = np.array([elt['noise_scale'] for elt in res3])
 
     x = alphas
@@ -541,7 +537,7 @@ def gridscan_noise(alpha = 1, noise_scales = .03 * np.random.uniform(10) + 1e-3)
     return alphas, scales, runs, runoutputs
 
 #### plotting functions
-def ploti2(res, i, save = False, xlim = None, ylim = None):
+def ploti2(res, i, save = False, xlim = None, ylim = None, with_nfindr = False):
     locs = res[i]['locs']
     data = res[i]['data']
     plt.scatter(*(data).T, s = 1, label = 'training observations')
@@ -551,7 +547,8 @@ def ploti2(res, i, save = False, xlim = None, ylim = None):
     
     post_loc_centroids = np.vstack([comp.mean(axis = 0) for comp in res[i]['components']])
     plt.scatter(*post_loc_centroids.T, c = 'k', s = 50, label = 'end members (posterior sample centroids)')
-    #plt.scatter(*(nfindr_locs(data).T), s = 50, label = 'N-FINDR')
+    if with_nfindr:
+        plt.scatter(*(nfindr_locs(data).T), s = 50, label = 'N-FINDR')
 
     plt.legend()
     #plt.legend(loc = 'upper left')
@@ -568,3 +565,73 @@ def ploti2(res, i, save = False, xlim = None, ylim = None):
 cfg = dict()
 cfg['generation_model'] = model
 cfg['inference_model'] = model
+
+
+import functools
+import warnings
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+import tensorflow.compat.v2 as tf
+import tensorflow_probability as tfp
+
+from tensorflow_probability import bijectors as tfb
+from tensorflow_probability import distributions as tfd
+
+tf.enable_v2_behavior()
+
+plt.style.use("ggplot")
+warnings.filterwarnings('ignore')
+
+def probabilistic_pca(data_dim, latent_dim, num_datapoints, stddv_datapoints):
+    w = yield tfd.Normal(loc=tf.zeros([data_dim, latent_dim]),
+                 scale=2.0 * tf.ones([data_dim, latent_dim]),
+                 name="w")
+#    z = yield tfd.Normal(loc=tf.zeros([latent_dim, num_datapoints]),
+#                 scale=tf.ones([latent_dim, num_datapoints]),
+#                 name="z")
+    z = yield tfd.Beta(.5 * tf.ones([latent_dim, num_datapoints]), .5 * tf.ones([latent_dim, num_datapoints]),
+                 name="z")
+    x = yield tfd.Normal(loc=tf.matmul(w, z),
+                       scale=stddv_datapoints,
+                       name="x")
+
+num_datapoints = 500
+data_dim = 2
+latent_dim = 2
+
+from scipy.stats import wasserstein_distance as wd
+from scipy.stats import entropy
+
+def hist2d(x_train):
+    H, xe, ye = np.histogram2d(np.array(x_train[0, :]), np.array(x_train[1, :]), bins = 20)
+    return H + 1e-9
+
+def ppca_generated(res):
+    x_train = res['data'].T
+    
+    stddv_datapoints = tf.cast(res['noise_scale'], 'float32')
+
+    concrete_ppca_model = functools.partial(probabilistic_pca,
+        data_dim=data_dim,
+        latent_dim=latent_dim,
+        num_datapoints=num_datapoints,
+        stddv_datapoints=stddv_datapoints)
+
+    model = tfd.JointDistributionCoroutineAutoBatched(concrete_ppca_model)
+    
+    w = tf.Variable(tf.random.normal([data_dim, latent_dim]))
+    z = tf.Variable(tf.random.normal([latent_dim, num_datapoints]))
+
+    target_log_prob_fn = lambda w, z: model.log_prob((w, z, x_train))
+    losses = tfp.math.minimize(
+        lambda: -target_log_prob_fn(w, z),
+        optimizer=tf.optimizers.Adam(learning_rate=0.05),
+        num_steps=200)
+    print("MAP-estimated axes:")
+    print(w)
+
+    _, _, x_generated = model.sample(value=(w, None, None))
+    return x_generated, w, z

@@ -290,25 +290,6 @@ def merge_fitoutput_blocks(fitoutputs, overlap = 1, lists_only = False,
     def _merge_arrs(*arrs):
         return np.hstack(arrs)
 
-#    plists_new = _iter(plists, merge_dicts)
-#    params_new = _iter(params, merge_dicts)
-
-#    for plist, paramslist in zip(plists, params):
-#        iterpeak_list = []
-#        iterparams_list = []
-#        for shift in range(overlap):
-#            iterpeak_list.append(plist[shift:])
-#            iterparams_list.append(paramslist[shift:])
-#        groups = zip(*iterpeak_list)
-#        groups_params = zip(*iterparams_list)
-#        merged_peaklists = [merge_dicts(*pl) for pl in groups]
-#        merged_paramslists = [merge_dicts(*pl) for pl in groups_params]
-#        #print(merged_paramslists)
-#        plists_new.append(merged_peaklists)
-#        params_new.append(merged_paramslists)
-#    plists_new = np.vstack(plists_new)
-#    params_new = np.vstack(params_new)
-#    return arrays, params_new, noiselists, xLists, yLists, plists_new 
     if lists_only:
         return arrays, params, _iter(noiselists, _merge_arrs),\
             _iter(xLists, _merge_arrs), _iter(yLists, _merge_arrs),\
