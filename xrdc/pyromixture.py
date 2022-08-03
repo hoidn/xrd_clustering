@@ -141,6 +141,7 @@ def model2(data = None, scale = .01, alpha = alpha, covariance = True,
 
 def get_log_likelihood(model, guide, data, num_samples = 50):
     posterior = Predictive(model, guide = guide, num_samples=num_samples)()
+    print(data.shape, posterior['weighted_expectation'].shape, posterior['L_Omega'].shape)
     return (
         dist.MultivariateNormal(posterior['weighted_expectation'], scale_tril=posterior['L_Omega'])
         .log_prob(data).sum().item()
@@ -305,9 +306,25 @@ def mcmc_posterior(data, num_samples, N, alpha, noise_scale = .01, **kwargs):
     mcmc = MCMC(kernel, num_samples=num_samples, warmup_steps=50)
     mcmc.run(data)
     posterior_samples = mcmc.get_samples()
+
+    local_weights = posterior_samples['phase_weights']
+    locs = posterior_samples['locs']
+    scales = posterior_samples['scales']
+    L_omega = posterior_samples['L_omega']
+
+    L_Omega = torch.einsum('mij,mlij -> mlij',
+         torch.einsum('ij,mj -> mij', torch.eye(ndim), scales.sqrt()),
+         torch.einsum('ljik,lnj->lnik', L_omega, local_weights))
+
+    weighted_expectation = torch.einsum('kji,klj->kli', locs, local_weights)
+
+    log_likelihood = (dist.MultivariateNormal(weighted_expectation, scale_tril=L_Omega)
+              .log_prob(data).sum().item())
+    
     return {'predictive': posterior_samples,
         'model': f,
-        'losses': [None]}
+        'losses': [None],
+        'log_likelihoods': [log_likelihood]}
     #return posterior_samples, f, [None]
 
 
@@ -526,8 +543,11 @@ def grid_generate(alphas, noise_scales):
         res.append(run.run())
     return runs, res
 
-def gridscan_alpha(alphas = np.logspace(-1, 1, 10), noise_scale = .03 * .5 + 1e-3):
-    scales = np.repeat(noise_scale, len(alphas))
+def gridscan_alpha(alphas = np.logspace(-1, 1, 10), noise_scale = .03 * .5 + 1e-3, random_scale = False):
+    if random_scale:
+        scales = np.random.uniform(size = len(alphas)) * noise_scale * 2
+    else:
+        scales = np.repeat(noise_scale, len(alphas))
     runs, runoutputs = grid_generate(alphas, scales)
     return alphas, scales, runs, runoutputs
 
