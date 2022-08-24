@@ -15,7 +15,8 @@ setup(name='xrdc',
 #        'scripts/mecana.py', 'scripts/logbooksync.py'
 #    ],
     install_requires = ['gpflow', 'bayesian-optimization', 'pathos',
-            'pymatgen', 'k3d', 'fabio', 'pyFAI', 'nibabel', 'python-ternary'],
+            'pymatgen', 'k3d', 'fabio', 'pyFAI', 'nibabel', 'python-ternary',
+            'scipy', 'numpy', 'pandas', 'tensorflow', 'matplotlib'],
     zip_safe = False,
     )
 
