@@ -1,0 +1,20 @@
+#conda install matplotlib seaborn scikit-learn tensorflow-probability tabulate deprecated multipledispatch
+#pip install bayesian-optimization fabio gpflow k3d nibabel pathos pyFAI python-ternary tensorflow install traittypes lark pymatgen pysptools pyro-ppl
+#git+git:github.com/tangkong/dataproc#egg=dataproc
+pillow
+cycler
+kiwisolver
+absl-py
+google
+wrapt
+opt-einsum
+gast
+astunparse
+termcolor
+flatbuffers
+gpflow
+fabio
+pyfai
+k3d
+pymatgen
+pathos
