@@ -16,7 +16,8 @@ setup(name='xrdc',
 #    ],
     install_requires = ['gpflow', 'bayesian-optimization', 'pathos',
             'pymatgen', 'k3d', 'fabio', 'pyFAI', 'nibabel', 'python-ternary',
-            'scipy', 'numpy', 'pandas', 'tensorflow', 'matplotlib'],
+            'scipy', 'numpy', 'pandas', 'tensorflow', 'matplotlib', 'scikit-learn', 'traittypes', 'tensorflow-probability',
+            'tabulate', 'pysptools'],
     zip_safe = False,
     )
 

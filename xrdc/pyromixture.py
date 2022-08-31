@@ -139,13 +139,20 @@ def model2(data = None, scale = .01, alpha = alpha, covariance = True,
                 dist.MultivariateNormal(weighted_expectation, torch.eye(ndim) * scales),
                 obs=data)
 
+def log_likelihood_from_params(paramdict, data):
+    return (
+            dist.MultivariateNormal(paramdict['weighted_expectation'], scale_tril=paramdict['L_Omega'])
+            .log_prob(data).sum().item()
+        )
+
 def get_log_likelihood(model, guide, data, num_samples = 50):
     posterior = Predictive(model, guide = guide, num_samples=num_samples)()
     print(data.shape, posterior['weighted_expectation'].shape, posterior['L_Omega'].shape)
-    return (
-        dist.MultivariateNormal(posterior['weighted_expectation'], scale_tril=posterior['L_Omega'])
-        .log_prob(data).sum().item()
-    )
+    return log_likelihood_from_params(posterior, data)
+#    return (
+#        dist.MultivariateNormal(posterior['weighted_expectation'], scale_tril=posterior['L_Omega'])
+#        .log_prob(data).sum().item()
+#    )
 
 
 #def gen_data(N = N, alpha = alpha, noise_scale = .01, alpha_components = 5):
@@ -168,11 +175,11 @@ def gen_data(N = N, alpha = alpha, noise_scale = .01, alpha_components = 5):
                     alpha_components, N = N)
 
     prior_samples = Predictive(_model, {}, num_samples=1)()
-    
+
     # TODO what's the difference between Predictive(model) and 
     # Predictive(model, guide = guide)?
     return prior_samples['weighted_expectation'][0],\
-        prior_samples['locs'][0], prior_samples['obs'][0], prior_samples['weights'][0]
+        prior_samples['locs'][0], prior_samples['obs'][0], prior_samples['weights'][0], prior_samples
 
 
 def guide(data = None, scale = .01, alpha = alpha, covariance = True, alpha_components = 1,
@@ -258,6 +265,8 @@ def vi_inference(data, num_samples, N, alpha, n_iter = n_iter, noise_scale = .01
            'guide': guide,
           'losses': losses,
           'log_likelihoods': log_likelihoods}
+    # TODO any other attributes that require this?
+    res['predictive']['weights'] = res['predictive']['weights'].squeeze()
     return res
 
 def rms(arr):
@@ -341,14 +350,15 @@ class Run(object):
 
     # TODO noise_scale hyperparameter tuning?
         if datadict is None:
-            we, locs, data, weights_ground = gen_data(N, alpha = alpha, noise_scale = noise_scale)
+            we, locs, data, weights_ground, gen_data_dict = gen_data(N, alpha = alpha, noise_scale = noise_scale)
         else:
-            we, locs, data, weights_ground = datadict['latents'], datadict['locs'], datadict['data'], datadict['weights']
+            we, locs, data, weights_ground, gen_data_dict = datadict['latents'], datadict['locs'], datadict['data'], datadict['weights'], datadict['samples']
         
         self.we = we
         self.weights = weights_ground
         self.locs = locs
         self.data = data
+        self.data_param_dict = gen_data_dict
         self.num_samples = num_samples
         self.N = N
         self.alpha = alpha
@@ -426,7 +436,7 @@ class Run(object):
                       'components': components, 'latents': we, 'weights': self.weights, 'noise_scale': self.noise_scale,
                       'model': wrapped_model, 'centroid_mu_posterior': locs_posterior_means,
                       'guide': guide, 'posterior_locs': posterior_locs,
-                      'inference_output': inference_output}
+                      'inference_output': inference_output, 'data_param_dict': self.data_param_dict}
         return result_dict
 
 def nfindr_locs(data):
@@ -444,15 +454,8 @@ def score_nfindr(elt):
 #     posterior_samples = elt['samples']
     locs = elt['locs']
     data = elt['data']
-    
-    for _ in range(1000):
-        try:
-            #U = nfindr_locs(data)
-            U = get_max(nfindr_locs, lambda inp: get_beta(*inp, norm=False), data)
-            break
-        except ValueError:
-            pass
-    return closest_permutation_diffs(U, locs)
+
+    return closest_permutation_diffs(nfindr_locs(data), locs)
 
 def plotnfindr(i, save = False, xlim = None, ylim = None):
     U= get_max(nfindr_locs, lambda inp: get_beta(*inp, norm = False), res_noise[i]['data'])
@@ -505,6 +508,7 @@ def plt_heatmap_alpha_noise(res3, alphas, zname = 'diff_locs', yscale = 300, lab
     plt.title(label)
     plt.semilogx()
     plt.show()
+    return z
     
 def initialize(seed, *args, **kwargs):
     global global_guide, svi, prior_sample

@@ -17,3 +17,5 @@ https://anaconda.org/conda-forge/k3d
 https://pytorch.org/get-started/locally/
 https://anaconda.org/conda-forge/pymatgen
 https://anaconda.org/conda-forge/pathos
+conda install matplotlib seaborn scikit-learn tensorflow-probability tabulate deprecated multipledispatch
+pip install bayesian-optimization fabio gpflow k3d nibabel pathos pyFAI python-ternary tensorflow install traittypes lark pymatgen pysptools pyro-ppl
