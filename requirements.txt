@@ -1,21 +1,20 @@
-git+git:github.com/tangkong/dataproc#egg=dataproc
-https://pillow.readthedocs.io/en/stable/
-https://pypi.org/project/cycler/
-https://pypi.org/project/kiwisolver/
-https://pypi.org/project/absl-py/
-https://pypi.org/project/google/
-https://pypi.org/project/wrapt/
-https://pypi.org/project/opt-einsum/
-https://pypi.org/project/gast/
-https://pypi.org/project/astunparse/
-https://pypi.org/project/termcolor/
-https://pypi.org/project/flatbuffers/
-https://pypi.org/project/gpflow/
-https://anaconda.org/conda-forge/fabio
-https://anaconda.org/conda-forge/pyfai
-https://anaconda.org/conda-forge/k3d
-https://pytorch.org/get-started/locally/
-https://anaconda.org/conda-forge/pymatgen
-https://anaconda.org/conda-forge/pathos
-conda install matplotlib seaborn scikit-learn tensorflow-probability tabulate deprecated multipledispatch
-pip install bayesian-optimization fabio gpflow k3d nibabel pathos pyFAI python-ternary tensorflow install traittypes lark pymatgen pysptools pyro-ppl
+#conda install matplotlib seaborn scikit-learn tensorflow-probability tabulate deprecated multipledispatch
+#pip install bayesian-optimization fabio gpflow k3d nibabel pathos pyFAI python-ternary tensorflow install traittypes lark pymatgen pysptools pyro-ppl
+#git+git:github.com/tangkong/dataproc#egg=dataproc
+pillow
+cycler
+kiwisolver
+absl-py
+google
+wrapt
+opt-einsum
+gast
+astunparse
+termcolor
+flatbuffers
+gpflow
+fabio
+pyfai
+k3d
+pymatgen
+pathos
