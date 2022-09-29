@@ -6,11 +6,6 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 import gpflow
-from gpflow.kernels import RBF
-from gpflow.likelihoods import Gaussian
-from gpflow.mean_functions import MeanFunction
-from gpflow.models import GPR
-from gpflow.base import Parameter
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import adjusted_mutual_info_score, adjusted_rand_score, fowlkes_mallows_score
 from sklearn.mixture import GaussianMixture as GMM
@@ -104,6 +99,11 @@ def mk_pattern(intensities, qs, sigma, norm = True, with_grid = False):
             return res 
 
 def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .15, clip = True):
+    from gpflow.kernels import RBF
+    from gpflow.likelihoods import Gaussian
+    from gpflow.mean_functions import MeanFunction
+    from gpflow.models import GPR
+    from gpflow.base import Parameter
     # todo not in module scope
     dq = q_grid[1] - q_grid[0]
     sigma_peakvar = dq * sigma_peakvar
@@ -127,7 +127,6 @@ def mk_generate_peak_scales(q_grid, sigma_peakvar = 20, scale = .15, clip = True
         return F
     return generate_peak_scales
 
-generate_peak_scales_default = mk_generate_peak_scales(q_grid)
 
 def poisson_additive(pattern, noise_scale = 1, poisson_lam = 30):
     """
@@ -139,6 +138,7 @@ from scipy.ndimage.filters import gaussian_filter
 def mutate_pattern(pattern, scale, q_grid, sigma_width = None, scale_type = 'scale', peak_height = True,
         q_jitter_magnitude = None, default_grid = True, noise_scale = 1, poisson_lam = 30,
         noise_type = 'uniform'):
+    generate_peak_scales_default = mk_generate_peak_scales(q_grid)
     if scale_type == 'scale':
         interp = extrap1d(interp1d(q_grid * scale, pattern))
         relative_lorentz = lorentz_q(q_grid * scale) / lorentz_q(q_grid)
