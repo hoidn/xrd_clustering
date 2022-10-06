@@ -307,7 +307,7 @@ def get_beta(va, vb, vc, norm = True):
     return beta
 
 def mcmc_posterior(data, num_samples, N, alpha, noise_scale = .01, kernel = None, locs = None,
-        warmup_steps = 50, **kwargs):
+        warmup_steps = 5, **kwargs):
     def f(*args):
         return cfg['inference_model'](*args, scale = noise_scale, alpha = alpha, N = N)
 
@@ -342,7 +342,7 @@ class Run(object):
     If datadict is provided, use it as a sample set. Otherwise generate
     observations using the given alpha, noise_scale and N
     """
-    def __init__(self, alpha, datadict = None, num_samples = 100, N = 500, noise_scale = .01,
+    def __init__(self, alpha, datadict = None, num_samples = 100, N = N, noise_scale = .01,
                 inference_posterior_fn = mcmc_posterior, inference_seed = None,
                 infer_noise_scale = .01, n_warmup = 0, warmup = True):
         # set this if you want the same cluster params independent of alpha
@@ -380,7 +380,7 @@ class Run(object):
                                   self.data,
                                   num_samples = num_samples)
 
-    def warmup(self, n_iter = 1600,
+    def warmup(self, n_iter = n_iter,
            inference_posterior_fn = mcmc_posterior):
         self.inference_output = self.inference_posterior_fn(self.data, self.num_samples, self.N,
                                                 self.alpha, noise_scale = self.infer_noise_scale,
@@ -388,7 +388,7 @@ class Run(object):
                                                 n_likelihood_samples = num_samples)
         return self
 
-    def run(self, n_iter = 1600):
+    def run(self, n_iter = n_iter):
         if self.inference_seed is not None:
             pyro.set_rng_seed(self.inference_seed)
             
@@ -429,7 +429,7 @@ class Run(object):
                       'diff_locs': locs_diffs, 'permutation': best_permutation, 'alpha': self.alpha, 'beta': beta,
                       'components': components, 'latents': we, 'weights': self.weights, 'noise_scale': self.noise_scale,
                       'model': wrapped_model, 'centroid_mu_posterior': locs_posterior_means,
-                      'guide': guide, 'posterior_locs': posterior_locs,
+                      'posterior_locs': posterior_locs,
                       'inference_output': inference_output, 'data_param_dict': self.data_param_dict}
         return result_dict
 
@@ -472,8 +472,6 @@ def get_max(f, metric, *args, attempts = 1):
     best = sorted(res, key = lambda tup: tup[0])[-1]
     return best[1]
 
-
-
 def grid_generate(alphas, noise_scales):
     start_seed = 1
     pyro.set_rng_seed(start_seed)
@@ -486,7 +484,7 @@ def grid_generate(alphas, noise_scales):
 #                                    noise_scale= noise_scale,
 #                                    infer_noise_scale = noise_scale,
 #                                    inference_posterior_fn=vi_inference)
-        run = Run(a, noise_scale = noise_scale, inference_posterior_fn=vi_inference, N = 500,
+        run = Run(a, noise_scale = noise_scale, inference_posterior_fn=vi_inference, N = N,
                     warmup = False)
         runs.append(run)
         res.append(run.run())
