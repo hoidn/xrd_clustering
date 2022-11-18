@@ -8,11 +8,8 @@ import matplotlib.pyplot as plt
 
 from .. import featurization as feat
 from .. import source_separation as sep
-from .. import peak_fitting as pf
 from ..datasets import d2d
 
-# This enforces one peak per Bayesian block
-pf.cfg['fitInfo']['numCurves'] = 1
 
 def sample_peak_intensity():
     return np.random.uniform()
@@ -82,46 +79,49 @@ simtype = 'Cosine'
 scaling = 'log'
 ctype = 'agglom'
 
-feature_csims1, o_cuts = feat.sims_with_boundaries(patterns, act, act, n = 7, simtype = simtype, extra_label='',
-                    ctype = ctype, linkage = 'ward', affinity = 'euclidean')
-
-#fsub_stop_2d = pf.curvefit_2d((patterns - 0), stdratio_threshold = 2, noise_estimate = fast_T,
-#                   background = background, bg_shift_pos = False)
-
-def fitpeaks(stdratio_threshold = 4):
-    fsub_stop_2d = pf.curvefit_2d((patterns - 0), stdratio_threshold = stdratio_threshold, noise_estimate = fast_T,
-                       background = background, bg_shift_pos = False, bounds = None)
-    return fsub_stop_2d
-
-def pp_features(activations, log_scale_features = False):
-    act_min = activations.copy()
-    idxzero = np.where((act_min == 0))
-    iizero = idxzero[0]
-    act_min[act_min == 0] = np.inf
-    mins = act_min.min(axis = -1)
-    # TODO move this into feat.peakfit_featurize if it's going to be the standard transformation
-    activations_n1 = feat.norm(activations + mins[:, None] / 10, 1,
-        log_scale = log_scale_features)
-    return activations_n1
-
-def featurize_fits(fsub_stop_2d, peakwidth = 1.1, log_scale_features = False):
-    patterns_pp = fast_q #- fast_q.min()
-    #patterns_pp /= patterns_pp.mean()
-    fitlists = fsub_stop_2d[1]
-
-    labeled, feature_masks, activations, norm_, _ = feat.peakfit_featurize(patterns_pp, fitlists,
-        size_thresh = 5, peakwidth = peakwidth,
-        log_scale_features= log_scale_features)
-
+#feature_csims1, o_cuts = feat.sims_with_boundaries(patterns, act, act, n = 7, simtype = simtype, extra_label='',
+#                    ctype = ctype, linkage = 'ward', affinity = 'euclidean')
+#
+##fsub_stop_2d = pf.curvefit_2d((patterns - 0), stdratio_threshold = 2, noise_estimate = fast_T,
+##                   background = background, bg_shift_pos = False)
+#
+#def fitpeaks(stdratio_threshold = 4):
+#    # This enforces one peak per Bayesian block
+#    from .. import peak_fitting as pf
+#    pf.cfg['fitInfo']['numCurves'] = 1
+#    fsub_stop_2d = pf.curvefit_2d((patterns - 0), stdratio_threshold = stdratio_threshold, noise_estimate = fast_T,
+#                       background = background, bg_shift_pos = False, bounds = None)
+#    return fsub_stop_2d
+#
+#def pp_features(activations, log_scale_features = False):
 #    act_min = activations.copy()
 #    idxzero = np.where((act_min == 0))
 #    iizero = idxzero[0]
 #    act_min[act_min == 0] = np.inf
-#
 #    mins = act_min.min(axis = -1)
-
-    # TODO move this into feat.peakfit_featurize if it's going to be the standard transformation
-    #activations_n1 = feat.norm(activations + mins[:, None] / 2, 1)
-    activations_n1 = pp_features(activations)
-    return labeled, feature_masks, activations, norm_, activations_n1 
-
+#    # TODO move this into feat.peakfit_featurize if it's going to be the standard transformation
+#    activations_n1 = feat.norm(activations + mins[:, None] / 10, 1,
+#        log_scale = log_scale_features)
+#    return activations_n1
+#
+#def featurize_fits(fsub_stop_2d, peakwidth = 1.1, log_scale_features = False):
+#    patterns_pp = fast_q #- fast_q.min()
+#    #patterns_pp /= patterns_pp.mean()
+#    fitlists = fsub_stop_2d[1]
+#
+#    labeled, feature_masks, activations, norm_, _ = feat.peakfit_featurize(patterns_pp, fitlists,
+#        size_thresh = 5, peakwidth = peakwidth,
+#        log_scale_features= log_scale_features)
+#
+##    act_min = activations.copy()
+##    idxzero = np.where((act_min == 0))
+##    iizero = idxzero[0]
+##    act_min[act_min == 0] = np.inf
+##
+##    mins = act_min.min(axis = -1)
+#
+#    # TODO move this into feat.peakfit_featurize if it's going to be the standard transformation
+#    #activations_n1 = feat.norm(activations + mins[:, None] / 2, 1)
+#    activations_n1 = pp_features(activations)
+#    return labeled, feature_masks, activations, norm_, activations_n1 
+#

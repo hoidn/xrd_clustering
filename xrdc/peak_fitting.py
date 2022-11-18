@@ -77,10 +77,10 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
 
     # Start processing loop =======================================================
     run_enable = True
-    
+
     # restrict range?
     subx, suby = np.arange(len(y)) + 1, y
-    
+
 #    if background is None:
 #        # Background subtract/move to zero
 ##        suby = suby - np.min(suby)
@@ -138,17 +138,17 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
             print('global background')
         else:
             yList.append(suby[selector])
-            
+
         print(suby[selector])
         print(suby[selector])
         if noise_estimate is not None:
-            noiseList.append(noise_estimate[selector] + 1e-9) 
+            noiseList.append(noise_estimate[selector] + 1e-9)
         else:
             noiseList.append(None)
         if param_guesses is not None:
-            guessList.append(param_guesses[i]) 
+            guessList.append(param_guesses[i])
         else:
-            guessList.append(None) 
+            guessList.append(None)
 
     def _store_peakfit_outputs(outputs):
         for i, ((curveParams, derivedParams), xbit, ybit, noisebit) in enumerate(zip(outputs, xList, yList, noiseList)):
@@ -160,7 +160,7 @@ def workflow(y, boundaries, downsample_int = 10, noise_estimate = None, backgrou
                 hitp.save_dict(curveParams, cfg['exportPath'], template + f'_block{i}_curve')
                 hitp.save_dict(derivedParams, cfg['exportPath'], template + f'_block{i}_derived')
 #                TODO there's a memory leak here
-#                hitp.save_curve_fit(xbit, ybit, curveParams, cfg['exportPath'], 
+#                hitp.save_curve_fit(xbit, ybit, curveParams, cfg['exportPath'],
 #                                template + f'_block{i}', peakShape=fitInfo['peakShape'])
                 paramsList.append(derivedParams)
                 curve_paramsList.append(curveParams)
@@ -297,10 +297,10 @@ def merge_fitoutput_blocks(fitoutputs, overlap = 1, lists_only = False,
     elif params_only:
         return arrays, _iter(params, merge_dicts), noiselists,\
             xLists, yLists,\
-            _iter(plists, merge_dicts) 
+            _iter(plists, merge_dicts)
     return arrays, _iter(params, merge_dicts), _iter(noiselists, _merge_arrs),\
         _iter(xLists, _merge_arrs), _iter(yLists, _merge_arrs),\
-        _iter(plists, merge_dicts) 
+        _iter(plists, merge_dicts)
 
 def fit_curves(y, bba_smooth = 1.5, cb = _fit_peak, overlap = 1, bounds = None, **kwargs):
     if y.sum() != 0:
@@ -324,33 +324,29 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None,
     Run BBA and peak-fitting routine for each XRD pattern in a
     multidimensional dataset whose last axis is the q dimension.
     """
-#    if bounds is None and patterns.shape[0] != 1:
-#        raise ValueError("bounds must be provided to process multiple samples")
-#    else:
-#        try:
-#            len(bounds[0])
-#        except TypeError:
-#            bounds = np.vstack([bounds for _ in len(patterns)])
-            
+    assert len(patterns.shape) == 2
+    if background is not None:
+        assert len(background.shape) == 2
+    if noise_estimate is not None:
+        assert len(noise_estimate.shape) == 2
     def _noise_estimate(i):
         if noise_estimate is not None:
             return noise_estimate[i]
         return None
-    
+
     arrays = np.zeros(patterns.shape)
     params = np.empty(patterns.shape[:-1], object)
     curveparams = np.empty(patterns.shape[:-1], object)
     noiselists = np.empty(patterns.shape[:-1], object)
     xLists = np.empty(patterns.shape[:-1], object)
     yLists = np.empty(patterns.shape[:-1], object)
-    
+
     for indices in np.ndindex(patterns.shape[:-1]):
         if background is not None:
             background_selected = background[indices]
         else:
             background_selected = None
         if noise_estimate is not None:
-#            pdb.set_trace()
             noise_estimate_selected = noise_estimate[indices]
         else:
             noise_estimate_selected = None
@@ -358,13 +354,14 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None,
             fit_curves(patterns[indices], background = background_selected,
                         noise_estimate = noise_estimate_selected, bounds = bounds,# TODO hack
                         **kwargs)
+        #print('curve fitting failed in call to fit_curves', e)
         arrays[indices] = suby
         params[indices] = derivedParams
         curveparams[indices] = cparams
         noiselists[indices] = noiseList
         xLists[indices] = xList
         yLists[indices] = yList
-        
+
     return arrays, params, noiselists, xLists, yLists, curveparams
 
 from copy import deepcopy
@@ -380,14 +377,13 @@ def refine_2d(patterns, fitoutputs, noise_estimate = None, background = True, **
         if noise_estimate is not None:
             return noise_estimate[i]
         return None
-    
+
     for indices in np.ndindex(patterns.shape[:-1]):
         if background is not None:
             background_selected = background[indices]
         else:
             background_selected = None
         if noise_estimate is not None:
-#            pdb.set_trace()
             noise_estimate_selected = noise_estimate[indices]
         else:
             noise_estimate_selected = None
@@ -401,7 +397,7 @@ def refine_2d(patterns, fitoutputs, noise_estimate = None, background = True, **
         noiselists[indices] = noiseList
         xLists[indices] = xList
         yLists[indices] = yList
-        
+
     return arrays, params, noiselists, xLists, yLists, curveparams
 
 ###
@@ -416,6 +412,8 @@ def get_curves(fitoutput, i, j, k = None, peak_range_only = True):
     """
     # TODO clean up
     arrays, paramsLists, noiselists, xLists, yLists, curveparams = fitoutput
+    if xLists is None:
+        return None, None, None, None, None, None
 
     if k is None:
         x, y, cparams = xLists[i][j], yLists[i][j], curveparams[i][j]
@@ -444,6 +442,6 @@ def get_curves(fitoutput, i, j, k = None, peak_range_only = True):
             return x, y, X[mask], Y[mask], ys, bounds
         else:
             return x, y, X, Y, ys, bounds
-    
+
 def mean2d(arr2d):
     return arr2d.mean(axis = 0)[:, None].T
