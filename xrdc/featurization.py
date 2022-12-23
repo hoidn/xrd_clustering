@@ -70,7 +70,7 @@ def iterpeaks(fit_list):
 def color_peaks(fit_list, pattern, imin = 10, fwhm_max = 80, area_min = 0,
         peakwidth = 'auto'):
     """
-    Return an array of 1s in indices corresponding to a peak (+- HWHM) and 0s elsewhere. 
+    Return an array of 1s in indices corresponding to a peak (+- HWHM) and 0s elsewhere.
 
     fit_list: list of derived peak fit parameters.
     """
@@ -133,15 +133,18 @@ def get_ridges(orig, axis = 1, fitlists = None, **kwargs):
 #def mask_borders(arr, num=1):
 #    mask = np.zeros(arr.shape, bool)
 #    for dim in range(arr.ndim):
-#        mask[tuple(slice(0, num) if idx == dim else slice(None) for idx in range(arr.ndim))] = True  
-#        mask[tuple(slice(-num, None) if idx == dim else slice(None) for idx in range(arr.ndim))] = True  
+#        mask[tuple(slice(0, num) if idx == dim else slice(None) for idx in range(arr.ndim))] = True
+#        mask[tuple(slice(-num, None) if idx == dim else slice(None) for idx in range(arr.ndim))] = True
 #    return mask
 
 def shuffle(bin_img, thicken_ax0 = 1, thicken_ax1 = 1):
     ret = np.zeros_like(bin_img)
     #borders = mask_borders(bin_img)
     for s0 in range(-round(thicken_ax0), round(thicken_ax0) + 1):
-        for s1 in range(-round(thicken_ax1), round(thicken_ax1) + 1):
+        range_size = int(thicken_ax1 * 2)
+        range_offset = int(thicken_ax1)
+        for s1 in range(-range_offset, range_size - range_offset + 1):
+        #for s1 in range(-round(thicken_ax1), round(thicken_ax1) + 1):
             ret += (np.roll(bin_img, s0, axis = 0) )
             if len(bin_img.shape) >= 3:
                 print(3)
@@ -173,12 +176,12 @@ def get_size(labeled, i, mode = 'count'):
     elif mode == 'vertical':
         return get_feature_vspan(labeled, i)
     raise Exception
-    
+
 def norm(arr, axis = 0, log_scale = False):
     """
     Log scale: scale the standard deviation along each feature dimension to the
     mean value of that feature
-    
+
     For axis == 1, we scale features to mean and std, but only consider non-zero values.
     """
     # TODO background subtraction
@@ -202,7 +205,7 @@ def norm(arr, axis = 0, log_scale = False):
                 #arr[xxi(i), yyi(i)] *= (np.log(ai.mean() + 1))
                 arr[xxi(i), yyi(i)] *= (np.log(ai.mean() - global_min + 1))
                 #arr[xxi(i), yyi(i)] = np.log(1 + arr[xxi(i), yyi(i)])
-        
+
         return arr
             #stds *= np.log(means)
         #return ((arr - means[:, None]) / stds[:, None])
@@ -213,7 +216,7 @@ def norm3d(arr, axis = 0, log_scale = False):
     """
     Log scale: scale the standard deviation along each feature dimension to the
     mean value of that feature
-    
+
     For axis == 1, we scale features to mean and std, but only consider non-zero values.
     """
     xi, yi, zi = np.nonzero(arr)
@@ -232,7 +235,7 @@ def oldnorm(arr, axis = 0, log_scale = False):
     """
     Log scale: scale the standard deviation along each feature dimension to the
     mean value of that feature
-    
+
     For axis == 1, we scale features to mean and std, but only consider non-zero values.
     """
     # TODO background subtraction
@@ -247,7 +250,7 @@ def oldnorm(arr, axis = 0, log_scale = False):
             #stds *= np.log(means)
         return ((arr - means[:, None]) / stds[:, None])
     raise Exception
-    
+
 def csim_pairs(composition):
     norm = np.linalg.norm(composition, axis = 1)
     similarity = np.dot(composition, composition.T) / np.outer(norm, norm)
@@ -263,7 +266,7 @@ def l2_pairs(a):
 
 def l2_sim(a):
     return -l2_pairs(a)
-    
+
 from sklearn.cluster import KMeans
 
 def preprocess(patterns, bg_smooth = 80, smooth_ax1 = 'FWHM', smooth_ax0 = 2, bgsub = False, threshold_percentile = 50,
@@ -298,7 +301,7 @@ def preprocess(patterns, bg_smooth = 80, smooth_ax1 = 'FWHM', smooth_ax0 = 2, bg
     p[p < threshold] = 0
 
     smoothed = gf(p, smooth_shape)
-    
+
 #    import pdb
 #    pdb.set_trace()
     try:
@@ -332,7 +335,7 @@ def flood_thicken(labeled, arr, thresh = .95, max_hsize = 50):
         labeled = new_labeled
         labeled[fillx, filly] = i
     return labeled
-    
+
 def label_peakregions(ridges):
     if len(ridges.shape) == 2:
         structure = np.ones((3, 3), dtype=int)  # this defines the connection filter
@@ -396,7 +399,7 @@ def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size
     arr, labeled = refine_and_label(arr, thicken = thicken, do_flood_thicken = do_flood_thicken, size_thresh = size_thresh,
         max_size_flood = max_size_flood, flood_threshold = flood_threshold, thicken_ax0 = thicken_ax0, thicken_ax1 = thicken_ax1,
         sizetype = sizetype)
-    
+
     if plot:
         if len(patterns.shape) == 2:
             # TODO handle 3d case
@@ -441,7 +444,7 @@ def featurize(feature_masks, patterns):
 def do_clust(patterns, activations, n_clust, ctype = 'agglom', **kwargs):
     #print(kwargs)
     X = activations.T
-    
+
     if ctype == 'kmeans':
         # X = activations_n1.T
         kmeans = KMeans(n_clusters=n_clust, random_state=0, **kwargs).fit(X)
@@ -476,8 +479,8 @@ def get_boundaries(patterns, activations, n_clust = 7, ctype = 'agglom', **kwarg
     return sorter, boundaries, clust_cms
 
 
-    
-    
+
+
 def plot_pca_explained_variance(X):
     from sklearn.preprocessing import StandardScaler
     sc = StandardScaler()
@@ -517,7 +520,7 @@ def simple_heatmap(arr, **kwargs):
     plt.imshow(arr, interpolation = 'none', cmap = 'jet')
 
 
-def similarity_plot_row(fn, label, patterns, activations, activations_n1, 
+def similarity_plot_row(fn, label, patterns, activations, activations_n1,
                         activations_n1_log = None, offset = 0, swapper = lambda arr: arr.T,
                        plotter = simple_heatmap, a = 2, b = 3):
     # transformer: swap between pattern and activations row ordering
@@ -529,7 +532,7 @@ def similarity_plot_row(fn, label, patterns, activations, activations_n1,
     plotter(raw_csims)
     #plt.imshow(raw_csims, interpolation = 'none', cmap = 'jet')
     #plt.colorbar()
-    
+
     plt.subplot(a, b, 2 + offset)
     feature_csims = fn(swapper(activations))
     plt.title("{} distances (feature space, no normalization)".format(label))
@@ -542,13 +545,13 @@ def similarity_plot_row(fn, label, patterns, activations, activations_n1,
     plotter(feature_csims1)
     #plt.imshow(feature_csims1, interpolation = 'none', cmap = 'jet')
 
-    
+
     if activations_n1_log is not None:
         plt.subplot(a, b, 4 + offset)
         feature_csims = fn(swapper(activations_n1_log))
         plt.title("{} distances, log scaled (feature space, normalized dim 1)".format(label))
         plt.imshow(feature_csims, interpolation = 'none', cmap = 'jet')
-        
+
 def ordered_cuts(patterns, activations, n, ctype = 'agglom', cut_type = 'clustering', simfn = None, **kwargs):
     if cut_type == 'clustering':
         tmp = [get_boundaries(patterns, activations, n_clust = i, ctype = ctype, **kwargs)[1] for i in range(2, n + 1)]
@@ -585,7 +588,7 @@ def draw_cuts(o_cuts, offset, fontsize, vlines = True, extent = 60):
             if vlines:
                 plt.vlines(v + .5, 0, extent, color = 'k', linestyles=sty, linewidth = 5)
             plt.text(offset, v + .5, "cut {}".format(i), fontsize=fontsize)
-            
+
 
 def cluster_draw_boundaries(patterns, activations, n_clust = 7, ctype = 'agglom', logscale = True):
     # kinda deprecated, use draw_cuts instead
@@ -624,7 +627,7 @@ def sims_with_boundaries(patterns, clustering_mat, visualization_mat, n = 5, sim
     plt.imshow(np.log(1 + patterns), aspect=patterns.shape[1] / patterns.shape[0], cmap = 'jet')
     o_cuts = ordered_cuts(patterns, clustering_mat, n, simfn = simfn, cut_type = cut_type,
                                ctype = ctype, **kwargs)
-    
+
     if lines:
         draw_cuts(o_cuts, cut_offset_raw, 25, vlines = False, extent = cut_offset_raw * .95)
 
@@ -638,7 +641,7 @@ def sims_with_boundaries(patterns, clustering_mat, visualization_mat, n = 5, sim
     plt.imshow(feature_csims1, interpolation = 'none', cmap = 'jet')
     if lines:
         draw_cuts(o_cuts, cut_offset_similarity, 25, extent = cut_offset_similarity * .95)
-        
+
     if plot_distortion:
         plt.subplot(a, b, 3)
         X = clustering_mat.T
@@ -668,7 +671,7 @@ def fwhm_finder(patterns, peakShape = 'Voigt', numCurves = 1):
 
 def peakfit_featurize(patterns_pp, fitlists, size_thresh = 5, smooth_ax1 = 'FWHM', smooth_ax0 = 2, threshold_percentile = 50, thicken = True, bgsub=False,
         log_scale_features = False, fwhm_finder=fwhm_finder, do_flood_thicken = False, max_size_flood = 20,
-        thicken_ax1 = 0, flood_threshold=.95, smooth_factor_ax1 = .125, 
+        thicken_ax1 = 0, flood_threshold=.95, smooth_factor_ax1 = .125,
         peakwidth = 2, **kwargs):
     """
     Given patterns and a list of peak fit parameters, return peak
@@ -692,9 +695,9 @@ def printinfo(simtype, scaling, linkage_type, clustering_type):
     Similarity type: {}
 
     Scaling: {}
-    
+
     Clustering type: {}
-    
+
     Linkage: {}
     """.format(simtype, scaling, clustering_type, linkage_type))
 
@@ -707,8 +710,8 @@ def get_features_range(labeled, i):
     if len(labeled.shape) == 2:
         vi, hi = indices[:, labeled == i]
         return (vi.min(), vi.max(), np.floor(hi[(vi == vi.max())].mean()))
-    
-def get_peakshift_corrected_heatmap(patterns, activations, labeled):    
+
+def get_peakshift_corrected_heatmap(patterns, activations, labeled):
     """
     Given XRD array, corresponding feature label map, and an array of
     feature intensities for each pattern/feature pair, return a heatmap
