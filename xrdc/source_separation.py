@@ -33,10 +33,10 @@ import pdb
 #        H = clip_low_window(sig, .001) * bwindow
 #    else:
 #        raise ValueError
-#    
+#
 #    g = signal.gaussian(len(y), std = peak_width)
 #    gfft = fftshift(fft(g))
-#    
+#
 #    psf = mag(ifft(gfft * H))[:, None].T
 #    psf_1d = psf[:, 1275:1324]
 #    deconvolved_RL = restoration.richardson_lucy((sig[:, None].T) / (10 * sig.max()), psf_1d, iterations=120)
@@ -113,6 +113,7 @@ def iplot_rows(*patterns_list, X_list = None, styles = None, labels = None,
     output = interactive_plot.children[-1]
     output.layout.height = height
     return interactive_plot
+
 
 def logim(arr, offset = 1):
     plt.imshow(np.log(offset + arr), cmap = 'jet')
@@ -270,7 +271,7 @@ def get_background(patterns, threshold = 50, bg_fill_method = 'simple',
             interp = NearestNDInterpolator(np.transpose(mask), smooth_bg[mask])
             filled_data = interp(*np.indices(smooth_bg.shape))
         elif bg_fill_method == 'extrap_1d':
-            filled_data = fill_nd(smooth_bg) 
+            filled_data = fill_nd(smooth_bg)
         else:
             raise ValueError
     elif bg_fill_method == 'cloughtocher':
@@ -289,7 +290,7 @@ def draw_circle(arr,diamiter):
     Input:
     shape    : tuple (height, width)
     diameter : scalar
-    
+
     Output:
     np.array of shape that says True within a circle with diamiter =
     around center
@@ -363,8 +364,8 @@ def fill(data, invalid=None):
                  value should be replaced.
                  If None (default), use: invalid  = np.isnan(data)
 
-    Output: 
-        Return a filled array. 
+    Output:
+        Return a filled array.
     """
     if invalid is None: invalid = np.isnan(data)
 
@@ -374,9 +375,9 @@ def fill(data, invalid=None):
 def CTinterpolation(imarray, smoothing = 0):
     """
     Do a 2d interpolation to fill in zero values of a 2d ndarray.
-    
+
     Uses scipy.interpolate import CloughTocher2DInterpolator.
-    
+
     Arguments:
         imarray : np.ndarray
         detid : string
@@ -385,7 +386,7 @@ def CTinterpolation(imarray, smoothing = 0):
     from scipy.interpolate import CloughTocher2DInterpolator as ct
     dimx, dimy = np.shape(imarray)
     gridx, gridy = np.indices(imarray.shape)#np.arange(dimx), np.arange(dimy)
-    
+
 
     def interp_2d(imarray):
         # flattened values of all pixels
@@ -409,7 +410,7 @@ def CTinterpolation(imarray, smoothing = 0):
     smoothNN = gf(fill(imarray), smoothing)
     smooth_masked = np.where(np.isclose(imarray, 0), 0., smoothNN)
     CTinterpolated = interp_2d(smooth_masked)
-    
+
     # Fill in NAN values from outside the convex hull of the interpolated points
     combined = fill(CTinterpolated)# np.where(np.isnan(CTinterpolated), smoothNN, CTinterpolated)
     return combined
@@ -419,9 +420,9 @@ from scipy.interpolate import NearestNDInterpolator
 def NDinterpolation(imarray, smoothing = 0, ct = NearestNDInterpolator):
     """
     Do a 2d interpolation to fill in zero values of a 2d ndarray.
-    
+
     Uses scipy.interpolate import CloughTocher2DInterpolator.
-    
+
     Arguments:
         imarray : np.ndarray
         detid : string
@@ -429,7 +430,7 @@ def NDinterpolation(imarray, smoothing = 0, ct = NearestNDInterpolator):
     """
     dimx, dimy = np.shape(imarray)
     gridx, gridy = np.indices(imarray.shape)#np.arange(dimx), np.arange(dimy)
-    
+
 
     def interp_2d(imarray):
         # flattened values of all pixels
@@ -453,7 +454,7 @@ def NDinterpolation(imarray, smoothing = 0, ct = NearestNDInterpolator):
     smoothNN = gf(fill(imarray), smoothing)
     smooth_masked = np.where(np.isclose(imarray, 0), 0., smoothNN)
     CTinterpolated = interp_2d(smooth_masked)
-    
+
     # Fill in NAN values from outside the convex hull of the interpolated points
     combined = fill(CTinterpolated)# np.where(np.isnan(CTinterpolated), smoothNN, CTinterpolated)
     return combined
@@ -512,7 +513,7 @@ def separate_signal(patterns, cutoff = .2, mode = 'gaussian',
     """
     for ii, jj in zip((patterns.shape[0],) + patterns.shape[:-1], patterns.shape[:-1]):
         # array must be square for fourier filtering to work in the non-q dimensions
-        assert ii == jj 
+        assert ii == jj
     # TODO filter T before background or after? need to do a more careful comparison
     # calculate the low-frequency component in xy
     nq = patterns.shape[-1]

@@ -324,11 +324,11 @@ def curvefit_2d(patterns: np.ndarray, background = None, noise_estimate = None,
     Run BBA and peak-fitting routine for each XRD pattern in a
     multidimensional dataset whose last axis is the q dimension.
     """
-    assert len(patterns.shape) == 2
-    if background is not None:
-        assert len(background.shape) == 2
-    if noise_estimate is not None:
-        assert len(noise_estimate.shape) == 2
+#    assert len(patterns.shape) == 2
+#    if background is not None:
+#        assert len(background.shape) == 2
+#    if noise_estimate is not None:
+#        assert len(noise_estimate.shape) == 2
     def _noise_estimate(i):
         if noise_estimate is not None:
             return noise_estimate[i]
