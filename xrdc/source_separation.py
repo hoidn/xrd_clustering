@@ -71,7 +71,7 @@ def iplot_rows(*patterns_list, X_list = None, styles = None, labels = None,
     Plot a series of curves interactively.
     """
     # TODO X_list argument doesn't work
-    plt.rcParams["figure.figsize"]=(12, 9)
+    #plt.rcParams["figure.figsize"]=(12, 9)
     #labels = [label1, label2]
     if labels is None:
         labels = [''] * len(patterns_list)
@@ -84,8 +84,6 @@ def iplot_rows(*patterns_list, X_list = None, styles = None, labels = None,
             else:
                 extra_args = ()
             try:
-                #assert x is not None
-                #print(len(patterns[i]))
                 if X_list is not None:
                     X = X_list[j]
                 else:
