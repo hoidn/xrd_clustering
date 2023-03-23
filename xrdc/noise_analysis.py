@@ -203,14 +203,6 @@ def plot_zscores_subsample_rows(fast_q, row_blocksize = 1, blocksize = 10, peak 
             blocksize)
 
 
-def to_shape(a, shape):
-    y_, x_ = shape
-    y, x = a.shape
-    y_pad = (y_-y)
-    x_pad = (x_-x)
-    return np.pad(a,((y_pad//2, y_pad//2 + y_pad%2),
-                     (x_pad//2, x_pad//2 + x_pad%2)),
-                  mode = 'constant')
 
 def to_shape(a, shape, mode = 'constant'):
     inshape = np.array(a.shape)
@@ -218,14 +210,6 @@ def to_shape(a, shape, mode = 'constant'):
     pads = shape - inshape
     pads_tup = tuple([(pad // 2, pad // 2 + pad % 2) for pad in pads])
     return np.pad(a, pads_tup, mode = mode)
-
-#    y_, x_ = shape
-#    y, x = a.shape
-#    y_pad = (y_-y)
-#    x_pad = (x_-x)
-#    return np.pad(a,((y_pad//2, y_pad//2 + y_pad%2),
-#                     (x_pad//2, x_pad//2 + x_pad%2)),
-#                  mode = 'constant')
 
 
 from scipy.interpolate import interp1d

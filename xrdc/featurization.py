@@ -137,7 +137,8 @@ def get_ridges(orig, axis = 1, fitlists = None, **kwargs):
 #        mask[tuple(slice(-num, None) if idx == dim else slice(None) for idx in range(arr.ndim))] = True
 #    return mask
 
-def shuffle(bin_img, thicken_ax0 = 1, thicken_ax1 = 1):
+# TODO
+def shuffle(bin_img, thicken_ax0 = 1, thicken_ax1 = 1, sign = True):
     ret = np.zeros_like(bin_img)
     #borders = mask_borders(bin_img)
     for s0 in range(-round(thicken_ax0), round(thicken_ax0) + 1):
@@ -145,14 +146,19 @@ def shuffle(bin_img, thicken_ax0 = 1, thicken_ax1 = 1):
         range_offset = int(thicken_ax1)
         for s1 in range(-range_offset, range_size - range_offset + 1):
         #for s1 in range(-round(thicken_ax1), round(thicken_ax1) + 1):
-            ret += (np.roll(bin_img, s0, axis = 0) )
+            zmask = ret == 0
+            ret += zmask * (np.roll(bin_img, s0, axis = 0) )
+            zmask = ret == 0
             if len(bin_img.shape) >= 3:
                 print(3)
-                ret += (np.roll(bin_img, s1, axis = len(bin_img.shape) - 1) )
+                ret += zmask * (np.roll(bin_img, s1, axis = len(bin_img.shape) - 1) )
             else:
-                ret += (np.roll(bin_img, s1, axis = 1) )
+                ret += zmask * (np.roll(bin_img, s1, axis = 1) )
     dt = bin_img.dtype
-    return np.sign(ret.astype(int)).astype(dt)
+    if sign:
+        return np.sign(ret.astype(int)).astype(dt)
+    else:
+        return ret.astype(int).astype(dt)
 
 def get_features_spans(labeled, i):
     indices = np.indices(labeled.shape)#.T[:,:,[1, 0]]
@@ -661,8 +667,8 @@ def sims_with_boundaries(patterns, clustering_mat, visualization_mat, n = 5, sim
         plt.grid()
     return feature_csims1, o_cuts
 
-from .dataproc.dataproc.operations import hitp
 def fwhm_finder(patterns, peakShape = 'Voigt', numCurves = 1):
+    from .dataproc.dataproc.operations import hitp
     M = patterns.shape[1]
     all_curves = [hitp.fit_peak(np.arange(M), y, peakShape=peakShape, numCurves=numCurves)[1] for y in patterns[::10]]
     def get_fwhm(curves):
