@@ -715,7 +715,8 @@ def get_features_range(labeled, i):
     indices = np.indices(labeled.shape)#.T[:,:,[1, 0]]
     if len(labeled.shape) == 2:
         vi, hi = indices[:, labeled == i]
-        return (vi.min(), vi.max(), np.floor(hi[(vi == vi.max())].mean()))
+        return (vi.min(), vi.max(), np.floor(hi[(vi == vi.max())].mean()),
+            np.floor(hi[(vi == vi.min())].mean()))
 
 def get_peakshift_corrected_heatmap(patterns, activations, labeled):
     """
@@ -727,7 +728,7 @@ def get_peakshift_corrected_heatmap(patterns, activations, labeled):
     straight_feature_map = np.zeros_like(patterns)
     thickness = 2
     for i in range(1, labeled.max() + 1):
-        vmin, vmax, hcenter = get_features_range(labeled, i)
+        vmin, vmax, hcenter, _ = get_features_range(labeled, i)
         hstart, hend = int(hcenter - thickness / 2), int(hcenter + thickness / 2)
         vi, hi = np.indices(labeled.shape)
         fillmask = ((hi >= hstart) & (hi <= hend)) & ((vi <= vmax) & (vi >= vmin))

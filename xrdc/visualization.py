@@ -8,7 +8,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import torch
 from . import utils
 import matplotlib.pyplot as plt
-import matplotlib 
+import matplotlib
 
 from .datasets import d3d
 from . import featurization as feat
@@ -29,7 +29,7 @@ def xrd_to_embedding(xface, yface, net, embedding_cb):
 
     my_dataset = TensorDataset(tensor_x, tensor_y) # create your datset
     dataloader = DataLoader(my_dataset) # create your dataloader
-    
+
     emb_faces, y_faces = embedding_cb(net, dataloader)
     return emb_faces, y_faces
 
@@ -83,15 +83,18 @@ def iplot_volume(patterns, log = False, offset = 0, height = '550px'):
     interactive_plot = interactive(f, i=(0, 1, .005))
     return interactive_plot
 
-def overlay_mask(img, mask, ax = None, **kwargs):
-    grayscale = 1 - mask
+def overlay_mask(img, mask, ax = None, color = 'black', **kwargs):
+    if color == 'black':
+        grayscale = 1 - mask
+    else:
+        grayscale =  mask
     alpha = mask
     rgb_img = np.dstack((grayscale, (grayscale), grayscale, (alpha)))
     if ax is not None:
-        ax.imshow(np.log(1 + img), cmap = 'jet', **kwargs)
+        ax.imshow(img, cmap = 'jet', **kwargs)
         ax.imshow(rgb_img, cmap = 'Greys', **kwargs)
     else:
-        plt.imshow(np.log(1 + img), cmap = 'jet', **kwargs)
+        plt.imshow(img, cmap = 'jet', **kwargs)
         plt.imshow(rgb_img, cmap = 'Greys', **kwargs)
 
 
@@ -102,7 +105,7 @@ def heatmap(fig, arr, label = '', aspect = None, **kwargs):
     stride = 100
     qticks = d3d.q[::stride]
     labels = ['{:0.1f}'.format(elt) for elt in qticks]
-    
+
     ax.set_xticklabels(labels);
     ax.set_xticks(np.arange(len(qticks)) * stride);
     if kwargs is not None:
