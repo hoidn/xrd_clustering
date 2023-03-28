@@ -379,10 +379,13 @@ def refine_and_label(ridges, thicken = True, do_flood_thicken = False, size_thre
 #        labeled, ncomponents = label(labeled, structure) # merge overlapping features
     return ridges, labeled
 
+from matplotlib import colors
+int_colorcycle = colors.ListedColormap(list('kbgrcmy'))
 def imshow_labeled(labeled, **kwargs):
-    from matplotlib import colors
-    cmap = colors.ListedColormap(list('kbgrcmy'))
+    cmap = int_colorcycle
     plt.imshow((labeled % 7) + (labeled != 0), cmap= cmap, interpolation = 'none', **kwargs)
+    #plt.xticks([])
+
     #plt.imshow(labeled, cmap = 'jet')
 
 def get_ridge_features(patterns, threshold_percentile = 50, thicken = True, size_thresh = 2,

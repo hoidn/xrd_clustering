@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from .. import xrdutils as xdu
 from .. import simulation as sim
 from .. import simulation
 from .. import datasets as xd
@@ -28,7 +27,7 @@ def norm3d(arr, axis = 0, log_scale = False):
     """
     Log scale: scale the standard deviation along each feature dimension to the
     mean value of that feature
-    
+
     For axis == 1, we scale features to mean and std, but only consider non-zero values.
     """
     xi, yi, zi = np.nonzero(arr)
@@ -77,7 +76,7 @@ def plot_clusters_grid(coords, clust, nclust):
     Big_labels = []
     Big_labels.append(clust)
     plt.imshow(cg)
-    
+
 
 debug = False
 nclust = 11# i = 2
@@ -99,7 +98,7 @@ q = dgrid.data[1][:,0]
 X = dgrid.get_data_array()
 X /= X.sum(axis = 1)[:, None]
 
-coords = get_coords(dgrid)    
+coords = get_coords(dgrid)
 coords_to_idx = {tuple(c): i for i, c in enumerate(coords)}
 coordi = coords - 1
 dim = coordi.max() + 1
@@ -113,7 +112,7 @@ def to_3d(X):
 def to_2d(m3d):
     res = np.zeros_like(X)
     for k, (i, j) in enumerate(coordi):
-        res[k] = m3d[i, j, :] 
+        res[k] = m3d[i, j, :]
     return res
 
 m3d = to_3d(X)
