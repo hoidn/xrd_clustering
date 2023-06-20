@@ -5,7 +5,7 @@ import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-import gpflow
+#import gpflow
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import adjusted_mutual_info_score, adjusted_rand_score, fowlkes_mallows_score
 from sklearn.mixture import GaussianMixture as GMM
@@ -13,7 +13,7 @@ from sklearn.mixture import GaussianMixture as GMM
 
 from sklearn.cluster import KMeans
 
-from gpflow.ci_utils import ci_niter
+#from gpflow.ci_utils import ci_niter
 
 from scipy.interpolate import interp1d
 

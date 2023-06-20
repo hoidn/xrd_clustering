@@ -15,7 +15,7 @@
 	url = https://github.com/dganguli/robust-pca.git
 [submodule "xrdc/SLAC2020_SSRL-Internship"]
 	path = xrdc/waferutils
-	url = https://github.com/aoluwade/SLAC2020_SSRL-Internship.git
+	url = https://github.com/hoidn/SLAC2020_SSRL-Internship.git
 [submodule "xrdc/dataproc"]
 	path = xrdc/dataproc
-	url = git@github.com:hoidn/dataproc-1.git
+	url = https://github.com/hoidn/dataproc-1.git
